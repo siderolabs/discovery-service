@@ -1,0 +1,66 @@
+package client
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+
+	"github.com/talos-systems/wglan-manager/types"
+)
+
+// Add adds a Node to the Cluster database, updating it if it already exists.
+func Add(rootURL, clusterID string, n *types.Node) error {
+
+	body := new(bytes.Buffer)
+
+	if err := json.NewEncoder(body).Encode(n); err != nil {
+		return fmt.Errorf("failed to encode Node information: %w", err)
+	}
+
+	resp, err := http.Post(rootURL, "application/json", body); if err != nil {
+		return fmt.Errorf("failed to post Node information: %w", err)
+	}
+	defer resp.Body.Close() // nolint: errcheck
+
+	if resp.StatusCode > 299 {
+		return fmt.Errorf("server rejected Node information: %w", err)
+	}
+
+	return nil
+}
+
+// Get returns the Node defined by the given public key, if and only if it exists within the given Cluster ID.
+func Get(rootURL, clusterID, publicKey string) (*types.Node, error) {
+
+	resp, err := http.Get(fmt.Sprintf("%s/%s/%s", rootURL, clusterID, publicKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to request node %q/%q from server %q: %w", clusterID, publicKey, rootURL, err)
+	}
+
+	node := new(types.Node)
+	if err = json.NewDecoder(resp.Body).Decode(node); err != nil {
+		return nil, fmt.Errorf("failed to decode response from server: %w", err)
+	}
+
+	return node, nil
+}
+
+// List returns the set of Nodes associated with the given Cluster ID.
+func List(rootURL string, clusterID string) ([]*types.Node,error) {
+
+	resp, err := http.Get(fmt.Sprintf("%s/%s", rootURL, clusterID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to request list from server %q: %w", rootURL, err)
+	}
+	defer resp.Body.Close() // nolint: errcheck
+
+	var list []*types.Node
+	if err = json.NewDecoder(resp.Body).Decode(&list); err != nil {
+		return nil, fmt.Errorf("failed to decode response from server: %w", err)
+	}
+
+	return list, nil
+
+}
+
