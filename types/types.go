@@ -4,5 +4,7 @@ package types
 type Node struct {
    ID string
 
+	IP string
+
    KnownEndpoints []string
 }
