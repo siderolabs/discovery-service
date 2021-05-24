@@ -46,63 +46,91 @@ func main() {
    app := fiber.New()
 
 	app.Get("/:cluster", func(c *fiber.Ctx) error {
-		cluster := c.Get("cluster")
+		cluster := c.Params("cluster")
 		if cluster == "" {
+			logger.Error("empty cluster for node list")
 			return c.SendStatus(http.StatusBadRequest)
 		}
 
       list, err := nodeDB.List(cluster)
       if len(list) < 1 {
-			logger.Warn("cluster not found: ",
+			logger.Warn("cluster not found",
 				zap.String("cluster", cluster),
 				zap.Error(err),
 			)
          return c.SendStatus(http.StatusNotFound)
       }
+
+		logger.Info("listing cluster nodes",
+			zap.String("cluster", c.Params("cluster", "")),
+			zap.Int("count", len(list)),
+		)
 
       return c.JSON(list)
 
    })
 
 	app.Get("/:cluster/:node", func(c *fiber.Ctx) error {
-		cluster := c.Get("cluster", "")
+		cluster := c.Params("cluster", "")
 		if cluster == "" {
+			logger.Error("empty cluster for node get")
 			return c.SendStatus(http.StatusBadRequest)
 		}
 
-		node := c.Get("node", "")
+		node := c.Params("node", "")
 		if node == "" {
+			logger.Error("empty node for node get",
+				zap.String("cluster", c.Params("cluster", "")),
+			)
 			return c.SendStatus(http.StatusBadRequest)
 		}
 
-      list, err := nodeDB.List(cluster)
-      if len(list) < 1 {
-			logger.Warn("cluster empty",
+      n, err := nodeDB.Get(cluster, node)
+      if err != nil {
+			logger.Warn("node not found",
 				zap.String("cluster", cluster),
+				zap.String("node", node),
 				zap.Error(err),
 			)
          return c.SendStatus(http.StatusNotFound)
       }
 
-      return c.JSON(list)
+		logger.Error("returning cluster node",
+			zap.String("cluster", c.Params("cluster", "")),
+			zap.String("node", n.ID),
+			zap.Strings("endpoints", n.KnownEndpoints),
+			zap.Error(err),
+		)
+
+      return c.JSON(n)
    })
 
    app.Post("/:cluster", func(c *fiber.Ctx) error {
       n := new(types.Node)
 
       if err := c.BodyParser(n); err != nil {
+			logger.Error("failed to parse node POST",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.Error(err),
+			)
          return c.SendStatus(http.StatusBadRequest)
       }
 
-      if err := nodeDB.AddEndpoints(c.Get("cluster", ""), n.ID, n.KnownEndpoints); err != nil {
+      if err := nodeDB.AddEndpoints(c.Params("cluster", ""), n.ID, n.KnownEndpoints); err != nil {
 			logger.Error("failed to add endpoints to node",
-				zap.String("cluster", c.Get("cluster", "")),
+				zap.String("cluster", c.Params("cluster", "")),
 				zap.String("node", n.ID),
 				zap.Strings("endpoints", n.KnownEndpoints),
 				zap.Error(err),
 			)
          return c.SendStatus(http.StatusInternalServerError)
       }
+
+		logger.Info("add/update node",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.String("node", n.ID),
+				zap.Strings("endpoints", n.KnownEndpoints),
+		)
 
       return c.SendStatus(http.StatusNoContent)
    })

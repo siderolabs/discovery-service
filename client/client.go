@@ -18,13 +18,13 @@ func Add(rootURL, clusterID string, n *types.Node) error {
 		return fmt.Errorf("failed to encode Node information: %w", err)
 	}
 
-	resp, err := http.Post(rootURL, "application/json", body); if err != nil {
+	resp, err := http.Post(fmt.Sprintf("%s/%s", rootURL, clusterID), "application/json", body); if err != nil {
 		return fmt.Errorf("failed to post Node information: %w", err)
 	}
 	defer resp.Body.Close() // nolint: errcheck
 
 	if resp.StatusCode > 299 {
-		return fmt.Errorf("server rejected Node information: %w", err)
+		return fmt.Errorf("server rejected Node information: %s", resp.Status)
 	}
 
 	return nil
