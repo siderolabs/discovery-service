@@ -23,6 +23,9 @@ type Node struct {
 
 	// KnownEndpoints is a list of known endpoints (host:port) for this Node.
 	KnownEndpoints []*KnownEndpoint `json:"knownEndpoints,omitempty"`
+
+	// SelfIPs is a list of IPs assigned to the Node itself, either directly or via NAT.
+	SelfIPs []netaddr.IP `json:"selfIPs,omitempty"`
 }
 
 type KnownEndpoint struct {
