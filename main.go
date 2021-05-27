@@ -10,6 +10,7 @@ import (
 	"github.com/talos-systems/wglan-manager/db"
 	"github.com/talos-systems/wglan-manager/types"
 	"go.uber.org/zap"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 var listenAddr = ":3000"
@@ -85,7 +86,14 @@ func main() {
 			return c.SendStatus(http.StatusBadRequest)
 		}
 
-      n, err := nodeDB.Get(cluster, node)
+		nodeKey, err := wgtypes.ParseKey(node)
+		if err != nil {
+			logger.Error("failed to parse node as key",
+				zap.String("node", node),
+			)
+		}
+
+      n, err := nodeDB.Get(cluster, nodeKey)
       if err != nil {
 			logger.Warn("node not found",
 				zap.String("cluster", cluster),
@@ -97,13 +105,63 @@ func main() {
 
 		logger.Error("returning cluster node",
 			zap.String("cluster", c.Params("cluster", "")),
-			zap.String("node", n.ID),
-			zap.Strings("endpoints", n.KnownEndpoints),
+			zap.String("node", n.ID.String()),
+			zap.String("ip", n.IP.String()),
+			zap.Strings("endpoints", func() (out []string) {
+				for _, ep := range n.KnownEndpoints {
+					if !ep.Endpoint.IsZero() {
+						out = append(out, ep.Endpoint.String())
+					}
+				}
+				return out
+			}()),
 			zap.Error(err),
 		)
 
       return c.JSON(n)
    })
+
+	app.Put("/:cluster/:node", func(c *fiber.Ctx) error {
+		var knownEndpoints []*types.KnownEndpoint
+
+		if err := c.BodyParser(&knownEndpoints); err != nil {
+			logger.Error("failed to parse node PUT",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.String("node", c.Params("node", "")),
+				zap.Error(err),
+			)
+			return c.SendStatus(http.StatusBadRequest)
+		}
+
+		node, err := wgtypes.ParseKey(c.Params("node", ""))
+		if err != nil || c.Params("node", "") == "" {
+			logger.Error("invalid node key",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.String("node", c.Params("node", "")),
+				zap.Error(err),
+			)
+		}
+
+      if err := nodeDB.AddKnownEndpoints(c.Params("cluster", ""), node, knownEndpoints...); err != nil {
+			logger.Error("failed to add known endpoints",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.String("node", node.String()),
+				zap.String("ip", node.String()),
+				zap.Strings("endpoints", func() (out []string) {
+					for _, ep := range knownEndpoints {
+						if !ep.Endpoint.IsZero() {
+							out = append(out, ep.Endpoint.String())
+						}
+					}
+					return out
+				}()),
+				zap.Error(err),
+			)
+         return c.SendStatus(http.StatusInternalServerError)
+		}
+
+      return c.SendStatus(http.StatusNoContent)
+	})
 
    app.Post("/:cluster", func(c *fiber.Ctx) error {
       n := new(types.Node)
@@ -116,11 +174,19 @@ func main() {
          return c.SendStatus(http.StatusBadRequest)
       }
 
-      if err := nodeDB.AddEndpoints(c.Params("cluster", ""), n.ID, n.KnownEndpoints); err != nil {
-			logger.Error("failed to add endpoints to node",
+      if err := nodeDB.Add(c.Params("cluster", ""), n); err != nil {
+			logger.Error("failed to add/update node",
 				zap.String("cluster", c.Params("cluster", "")),
-				zap.String("node", n.ID),
-				zap.Strings("endpoints", n.KnownEndpoints),
+				zap.String("node", n.ID.String()),
+				zap.String("ip", n.IP.String()),
+				zap.Strings("endpoints", func() (out []string) {
+					for _, ep := range n.KnownEndpoints {
+						if !ep.Endpoint.IsZero() {
+							out = append(out, ep.Endpoint.String())
+						}
+					}
+					return out
+				}()),
 				zap.Error(err),
 			)
          return c.SendStatus(http.StatusInternalServerError)
@@ -128,8 +194,16 @@ func main() {
 
 		logger.Info("add/update node",
 				zap.String("cluster", c.Params("cluster", "")),
-				zap.String("node", n.ID),
-				zap.Strings("endpoints", n.KnownEndpoints),
+				zap.String("node", n.ID.String()),
+				zap.String("ip", n.IP.String()),
+				zap.Strings("endpoints", func() (out []string) {
+					for _, ep := range n.KnownEndpoints {
+						if !ep.Endpoint.IsZero() {
+							out = append(out, ep.Endpoint.String())
+						}
+					}
+					return out
+				}()),
 		)
 
       return c.SendStatus(http.StatusNoContent)
