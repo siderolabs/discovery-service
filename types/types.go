@@ -3,7 +3,6 @@ package types
 import (
 	"time"
 
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"inet.af/netaddr"
 )
 
@@ -16,7 +15,7 @@ type Node struct {
 
 	// ID is the unique identifier for this Node.
 	// Usually, this is the Wireguard Public Key of the Node.
-	ID wgtypes.Key `json:"id,omitempty"`
+	ID string `json:"id,omitempty"`
 
 	// IP is the Wireguard interface IP of this Node.
 	IP netaddr.IP `json:"ip,omitempty"`
@@ -24,8 +23,8 @@ type Node struct {
 	// KnownEndpoints is a list of known endpoints (host:port) for this Node.
 	KnownEndpoints []*KnownEndpoint `json:"knownEndpoints,omitempty"`
 
-	// SelfIPs is a list of IPs assigned to the Node itself, either directly or via NAT.
-	SelfIPs []netaddr.IP `json:"selfIPs,omitempty"`
+	// SelfAddresses is a list of addresses assigned to the Node itself, either directly or via NAT.
+	SelfIPs []string `json:"selfIPs,omitempty"`
 }
 
 type KnownEndpoint struct {

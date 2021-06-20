@@ -5,6 +5,6 @@ go 1.16
 require (
 	github.com/gofiber/fiber/v2 v2.8.0
 	go.uber.org/zap v1.16.0
-	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20210506160403-92e472f520a5
+	golang.org/x/sys v0.0.0-20210503173754-0981d6026fa6 // indirect
 	inet.af/netaddr v0.0.0-20210525141459-c0eff8545de6
 )

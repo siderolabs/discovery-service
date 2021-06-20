@@ -10,7 +10,6 @@ import (
 	"github.com/talos-systems/wglan-manager/db"
 	"github.com/talos-systems/wglan-manager/types"
 	"go.uber.org/zap"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 var listenAddr = ":3000"
@@ -86,14 +85,7 @@ func main() {
 			return c.SendStatus(http.StatusBadRequest)
 		}
 
-		nodeKey, err := wgtypes.ParseKey(node)
-		if err != nil {
-			logger.Error("failed to parse node as key",
-				zap.String("node", node),
-			)
-		}
-
-      n, err := nodeDB.Get(cluster, nodeKey)
+      n, err := nodeDB.Get(cluster, node)
       if err != nil {
 			logger.Warn("node not found",
 				zap.String("cluster", cluster),
@@ -105,7 +97,7 @@ func main() {
 
 		logger.Error("returning cluster node",
 			zap.String("cluster", c.Params("cluster", "")),
-			zap.String("node", n.ID.String()),
+			zap.String("node", n.ID),
 			zap.String("ip", n.IP.String()),
 			zap.Strings("endpoints", func() (out []string) {
 				for _, ep := range n.KnownEndpoints {
@@ -133,8 +125,8 @@ func main() {
 			return c.SendStatus(http.StatusBadRequest)
 		}
 
-		node, err := wgtypes.ParseKey(c.Params("node", ""))
-		if err != nil || c.Params("node", "") == "" {
+		node := c.Params("node", "")
+		if node == "" {
 			logger.Error("invalid node key",
 				zap.String("cluster", c.Params("cluster", "")),
 				zap.String("node", c.Params("node", "")),
@@ -145,8 +137,7 @@ func main() {
       if err := nodeDB.AddKnownEndpoints(c.Params("cluster", ""), node, knownEndpoints...); err != nil {
 			logger.Error("failed to add known endpoints",
 				zap.String("cluster", c.Params("cluster", "")),
-				zap.String("node", node.String()),
-				zap.String("ip", node.String()),
+				zap.String("node", node),
 				zap.Strings("endpoints", func() (out []string) {
 					for _, ep := range knownEndpoints {
 						if !ep.Endpoint.IsZero() {
@@ -177,7 +168,7 @@ func main() {
       if err := nodeDB.Add(c.Params("cluster", ""), n); err != nil {
 			logger.Error("failed to add/update node",
 				zap.String("cluster", c.Params("cluster", "")),
-				zap.String("node", n.ID.String()),
+				zap.String("node", n.ID),
 				zap.String("ip", n.IP.String()),
 				zap.Strings("endpoints", func() (out []string) {
 					for _, ep := range n.KnownEndpoints {
@@ -194,7 +185,7 @@ func main() {
 
 		logger.Info("add/update node",
 				zap.String("cluster", c.Params("cluster", "")),
-				zap.String("node", n.ID.String()),
+				zap.String("node", n.ID),
 				zap.String("ip", n.IP.String()),
 				zap.Strings("endpoints", func() (out []string) {
 					for _, ep := range n.KnownEndpoints {

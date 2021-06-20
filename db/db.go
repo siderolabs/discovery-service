@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/talos-systems/wglan-manager/types"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 type DB interface {
@@ -13,24 +12,24 @@ type DB interface {
    Add(cluster string, n *types.Node) error
 
 	// AddKnownEndpoints adds a set of known-good endpoints for a node.
-	AddKnownEndpoints(cluster string, id wgtypes.Key, ep ...*types.KnownEndpoint) error
+	AddKnownEndpoints(cluster string, id string, ep ...*types.KnownEndpoint) error
 
    // Get returns the details of the node.
-   Get(cluster string, id wgtypes.Key) (*types.Node,error)
+   Get(cluster string, id string) (*types.Node,error)
 
 	// List returns the set of Nodes for the given Cluster.
 	List(cluster string) ([]*types.Node,error)
 }
 
 type ramDB struct {
-   db map[string]map[wgtypes.Key]*types.Node
+   db map[string]map[string]*types.Node
    mu sync.RWMutex
 }
 
 // New returns a new database.
 func New() DB {
    return &ramDB{
-      db: make(map[string]map[wgtypes.Key]*types.Node),
+      db: make(map[string]map[string]*types.Node),
    }
 }
 
@@ -41,7 +40,7 @@ func (d *ramDB) Add(cluster string, n *types.Node) error {
 
 	c, ok := d.db[cluster]
 	if !ok {
-		c = make(map[wgtypes.Key]*types.Node)
+		c = make(map[string]*types.Node)
 		d.db[cluster] = c
 	}
 
@@ -75,7 +74,7 @@ func (d *ramDB) Add(cluster string, n *types.Node) error {
    return nil
 }
 
-func (d *ramDB) AddKnownEndpoints(cluster string, id wgtypes.Key, knownEndpoints ...*types.KnownEndpoint) error {
+func (d *ramDB) AddKnownEndpoints(cluster string, id string, knownEndpoints ...*types.KnownEndpoint) error {
    d.mu.Lock()
    defer d.mu.Unlock()
 
@@ -130,7 +129,7 @@ func (d *ramDB) List(cluster string) (list []*types.Node, err error) {
 }
 
 // Get implements DB
-func (d *ramDB) Get(cluster string, id wgtypes.Key) (*types.Node,error) {
+func (d *ramDB) Get(cluster string, id string) (*types.Node,error) {
    d.mu.RLock()
    defer d.mu.Unlock()
 
