@@ -30,8 +30,8 @@ func Add(rootURL, clusterID string, n *types.Node) error {
 	return nil
 }
 
-// AddKnownEndpoints adds a list of known-good endpoints to a node.
-func AddKnownEndpoints(rootURL, clusterID string, id string, epList ... *types.KnownEndpoint) error {
+// AddAddresses adds a list of addresses to a node.
+func AddAddresses(rootURL, clusterID string, id string, epList ... *types.Address) error {
 	buf := new(bytes.Buffer)
 
 	if err := json.NewEncoder(buf).Encode(epList); err != nil {

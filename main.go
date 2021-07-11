@@ -15,6 +15,8 @@ import (
 var listenAddr = ":3000"
 var devMode bool
 
+const defaultPort = 5000
+
 var nodeDB db.DB
 
 func init() {
@@ -39,7 +41,7 @@ func main() {
 		}
 	}
 
-	defer logger.Sync()
+	defer logger.Sync() // nolint: errcheck
 
    nodeDB = db.New()
 
@@ -99,24 +101,18 @@ func main() {
 			zap.String("cluster", c.Params("cluster", "")),
 			zap.String("node", n.ID),
 			zap.String("ip", n.IP.String()),
-			zap.Strings("endpoints", func() (out []string) {
-				for _, ep := range n.KnownEndpoints {
-					if !ep.Endpoint.IsZero() {
-						out = append(out, ep.Endpoint.String())
-					}
-				}
-				return out
-			}()),
+			zap.Strings("addresses", addressToString(n.Addresses)),
 			zap.Error(err),
 		)
 
       return c.JSON(n)
    })
 
+	// PUT addresses to a Node
 	app.Put("/:cluster/:node", func(c *fiber.Ctx) error {
-		var knownEndpoints []*types.KnownEndpoint
+		var addresses []*types.Address
 
-		if err := c.BodyParser(&knownEndpoints); err != nil {
+		if err := c.BodyParser(&addresses); err != nil {
 			logger.Error("failed to parse node PUT",
 				zap.String("cluster", c.Params("cluster", "")),
 				zap.String("node", c.Params("node", "")),
@@ -134,18 +130,11 @@ func main() {
 			)
 		}
 
-      if err := nodeDB.AddKnownEndpoints(c.Params("cluster", ""), node, knownEndpoints...); err != nil {
+      if err := nodeDB.AddAddresses(c.Params("cluster", ""), node, addresses...); err != nil {
 			logger.Error("failed to add known endpoints",
 				zap.String("cluster", c.Params("cluster", "")),
 				zap.String("node", node),
-				zap.Strings("endpoints", func() (out []string) {
-					for _, ep := range knownEndpoints {
-						if !ep.Endpoint.IsZero() {
-							out = append(out, ep.Endpoint.String())
-						}
-					}
-					return out
-				}()),
+				zap.Strings("addresses", addressToString(addresses)),
 				zap.Error(err),
 			)
          return c.SendStatus(http.StatusInternalServerError)
@@ -170,14 +159,7 @@ func main() {
 				zap.String("cluster", c.Params("cluster", "")),
 				zap.String("node", n.ID),
 				zap.String("ip", n.IP.String()),
-				zap.Strings("endpoints", func() (out []string) {
-					for _, ep := range n.KnownEndpoints {
-						if !ep.Endpoint.IsZero() {
-							out = append(out, ep.Endpoint.String())
-						}
-					}
-					return out
-				}()),
+				zap.Strings("addresses", addressToString(n.Addresses)),
 				zap.Error(err),
 			)
          return c.SendStatus(http.StatusInternalServerError)
@@ -187,14 +169,7 @@ func main() {
 				zap.String("cluster", c.Params("cluster", "")),
 				zap.String("node", n.ID),
 				zap.String("ip", n.IP.String()),
-				zap.Strings("endpoints", func() (out []string) {
-					for _, ep := range n.KnownEndpoints {
-						if !ep.Endpoint.IsZero() {
-							out = append(out, ep.Endpoint.String())
-						}
-					}
-					return out
-				}()),
+				zap.Strings("addresses", addressToString(n.Addresses)),
 		)
 
       return c.SendStatus(http.StatusNoContent)
@@ -203,4 +178,19 @@ func main() {
 	logger.Fatal("listen exited",
 		zap.Error(app.Listen(listenAddr)),
 	)
+}
+
+func addressToString(addresses []*types.Address) (out []string) {
+		for _, a := range addresses {
+			ep, err := a.Endpoint(defaultPort)
+			if err != nil {
+				out = append(out, err.Error())
+
+				continue
+			}
+
+			out = append(out, ep.String())
+		}
+
+		return out
 }

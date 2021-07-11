@@ -1,10 +1,70 @@
 package types
 
 import (
+	"fmt"
+	"net"
+	"sync"
 	"time"
 
 	"inet.af/netaddr"
 )
+
+// Address describes an IP or DNS address with optional Port.
+type Address struct {
+	// DNSName is the DNS name of this NodeAddress, if known.
+	Name string
+
+	// IP is the IP address of this NodeAddress, if known.
+	IP netaddr.IP
+
+	// Port is the port number for this NodeAddress, if known.
+	Port uint16
+
+	// LastReported indicates the time at which this address was last reported.
+	LastReported time.Time
+}
+
+// EqualHost indicates whether two addresses have the same host portion, ignoring the ports.
+func (a *Address) EqualHost(other *Address) bool {
+	if ! a.IP.IsZero() || ! other.IP.IsZero() {
+		return a.IP == other.IP
+	}
+
+	return a.Name == other.Name
+}
+
+// Equal indicates whether two addresses are equal.
+func (a *Address) Equal(other *Address) bool {
+	if !a.EqualHost(other) {
+		return false
+	}
+
+	return a.Port == other.Port
+}
+
+// Endpoint returns a UDP endpoint address for the Address, using the defaultPort if none is known.
+func (a *Address) Endpoint(defaultPort uint16) (*net.UDPAddr, error) {
+	proto := "udp"
+	addr := a.Name
+	port := a.Port
+
+	if !a.IP.IsZero() {
+		addr = a.IP.String()
+
+		if a.IP.Is6() {
+			proto = "udp6"
+			addr = "[" + addr + "]"
+		} else {
+			proto = "udp4"
+		}
+	}
+
+	if port == 0 {
+		port = defaultPort
+	}
+
+	return net.ResolveUDPAddr(proto, fmt.Sprintf("%s:%d", addr, port))
+}
 
 // Node describes a Wireguard Peer
 type Node struct {
@@ -17,20 +77,65 @@ type Node struct {
 	// Usually, this is the Wireguard Public Key of the Node.
 	ID string `json:"id,omitempty"`
 
-	// IP is the Wireguard interface IP of this Node.
+	// IP is the IP address of the Wireguard interface on this Node.
 	IP netaddr.IP `json:"ip,omitempty"`
 
-	// KnownEndpoints is a list of known endpoints (host:port) for this Node.
-	KnownEndpoints []*KnownEndpoint `json:"knownEndpoints,omitempty"`
+	// Addresses is a list of addresses for the Node.
+	Addresses []*Address `json:"selfIPs,omitempty"`
 
-	// SelfAddresses is a list of addresses assigned to the Node itself, either directly or via NAT.
-	SelfIPs []string `json:"selfIPs,omitempty"`
+	mu sync.Mutex
 }
 
-type KnownEndpoint struct {
-	// Endpoint describes the IP:Port of the known-good connection
-	Endpoint netaddr.IPPort `json:"endpoint"`
+// AddAddresses adds a set of addresses to a Node.
+func (n *Node) AddAddresses(addresses ... *Address) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 
-	// LastConnected records the time at which the endpoint was last reported to be good.
-	LastConnected time.Time `json:"lastConnected"`
+	for _, a := range addresses {
+		var found bool
+
+		if a.LastReported.IsZero() {
+			a.LastReported = time.Now()
+		}
+
+		for _, existing := range n.Addresses {
+			if a.EqualHost(existing) {
+				found = true
+
+				if a.Port > 0 {
+					existing.Port = a.Port
+				}
+
+				existing.LastReported = a.LastReported
+
+				break
+			}
+		}
+
+		if !found {
+			n.Addresses = append(n.Addresses, a)
+		}
+	}
+}
+
+// ExpireAddressesOlderThan removes addresses from the Node which have not been reported within the given timeframe.
+func (n *Node) ExpireAddressesOlderThan(maxAge time.Duration) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	i := 0
+
+	for _, a := range n.Addresses {
+		if time.Since(a.LastReported) < maxAge {
+			n.Addresses[i] = a
+
+			i++
+
+			continue
+		}
+
+		a = nil
+	}
+
+	n.Addresses = n.Addresses[:i]
 }

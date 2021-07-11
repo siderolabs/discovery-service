@@ -11,8 +11,8 @@ type DB interface {
    // Add adds a set of known Endpoints to a node, creating the node, if it does not exist.
    Add(cluster string, n *types.Node) error
 
-	// AddKnownEndpoints adds a set of known-good endpoints for a node.
-	AddKnownEndpoints(cluster string, id string, ep ...*types.KnownEndpoint) error
+	// AddAddresses adds a set of addresses for a node.
+	AddAddresses(cluster string, id string, ep ...*types.Address) error
 
    // Get returns the details of the node.
    Get(cluster string, id string) (*types.Node,error)
@@ -44,37 +44,18 @@ func (d *ramDB) Add(cluster string, n *types.Node) error {
 		d.db[cluster] = c
 	}
 
-   existingNode, ok := c[n.ID]
-   if !ok {
-      c[n.ID] = n
+   if existing, ok := c[n.ID]; ok {
+		existing.AddAddresses(n.Addresses...)
+
 		return nil
-   }
+	}
 
-	var found bool
-
-	existingNode.Name = n.Name
-	existingNode.ID = n.ID
-	existingNode.IP = n.IP
-
-   for _, ep := range n.KnownEndpoints {
-		found = false
-
-      for _, existing := range existingNode.KnownEndpoints {
-         if existing == ep {
-            found = true
-            break
-         }
-      }
-
-      if !found {
-         existingNode.KnownEndpoints = append(existingNode.KnownEndpoints, ep)
-      }
-   }
+   c[n.ID] = n
 
    return nil
 }
 
-func (d *ramDB) AddKnownEndpoints(cluster string, id string, knownEndpoints ...*types.KnownEndpoint) error {
+func (d *ramDB) AddAddresses(cluster string, id string, addresses ...*types.Address) error {
    d.mu.Lock()
    defer d.mu.Unlock()
 
@@ -88,23 +69,7 @@ func (d *ramDB) AddKnownEndpoints(cluster string, id string, knownEndpoints ...*
 		return fmt.Errorf("node does not exist")
    }
 
-	for _, ep := range knownEndpoints {
-		var found bool
-
-		for _, existing := range n.KnownEndpoints {
-			if ep.Endpoint == existing.Endpoint {
-				found = true
-
-				existing.LastConnected = ep.LastConnected
-
-				break
-			}
-		}
-
-		if !found {
-			n.KnownEndpoints = append(n.KnownEndpoints, ep)
-		}
-	}
+	n.AddAddresses(addresses...)
 
 	return nil
 }
