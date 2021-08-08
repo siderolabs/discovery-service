@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/talos-systems/wglan-manager/db"
@@ -25,7 +26,7 @@ func init() {
 }
 
 func main() {
-   
+
 	flag.Parse()
 
 	logger, err := zap.NewProduction()
@@ -43,9 +44,17 @@ func main() {
 
 	defer logger.Sync() // nolint: errcheck
 
-   nodeDB = db.New()
+	if os.Getenv("REDIS_ADDR") != "" {
+		nodeDB, err = db.NewRedis(os.Getenv("REDIS_ADDR"), logger)
+		if err != nil {
+			log.Fatalln("failed to connect to redis: %w", err)
+		}
 
-   app := fiber.New()
+	} else {
+		nodeDB = db.New(logger)
+	}
+
+	app := fiber.New()
 
 	app.Get("/:cluster", func(c *fiber.Ctx) error {
 		cluster := c.Params("cluster")
@@ -54,23 +63,23 @@ func main() {
 			return c.SendStatus(http.StatusBadRequest)
 		}
 
-      list, err := nodeDB.List(cluster)
-      if len(list) < 1 {
+		list, err := nodeDB.List(c.Context(), cluster)
+		if len(list) < 1 {
 			logger.Warn("cluster not found",
 				zap.String("cluster", cluster),
 				zap.Error(err),
 			)
-         return c.SendStatus(http.StatusNotFound)
-      }
+			return c.SendStatus(http.StatusNotFound)
+		}
 
 		logger.Info("listing cluster nodes",
 			zap.String("cluster", c.Params("cluster", "")),
 			zap.Int("count", len(list)),
 		)
 
-      return c.JSON(list)
+		return c.JSON(list)
 
-   })
+	})
 
 	app.Get("/:cluster/:node", func(c *fiber.Ctx) error {
 		cluster := c.Params("cluster", "")
@@ -87,17 +96,17 @@ func main() {
 			return c.SendStatus(http.StatusBadRequest)
 		}
 
-      n, err := nodeDB.Get(cluster, node)
-      if err != nil {
+		n, err := nodeDB.Get(c.Context(), cluster, node)
+		if err != nil {
 			logger.Warn("node not found",
 				zap.String("cluster", cluster),
 				zap.String("node", node),
 				zap.Error(err),
 			)
-         return c.SendStatus(http.StatusNotFound)
-      }
+			return c.SendStatus(http.StatusNotFound)
+		}
 
-		logger.Error("returning cluster node",
+		logger.Info("returning cluster node",
 			zap.String("cluster", c.Params("cluster", "")),
 			zap.String("node", n.ID),
 			zap.String("ip", n.IP.String()),
@@ -105,8 +114,8 @@ func main() {
 			zap.Error(err),
 		)
 
-      return c.JSON(n)
-   })
+		return c.JSON(n)
+	})
 
 	// PUT addresses to a Node
 	app.Put("/:cluster/:node", func(c *fiber.Ctx) error {
@@ -130,31 +139,31 @@ func main() {
 			)
 		}
 
-      if err := nodeDB.AddAddresses(c.Params("cluster", ""), node, addresses...); err != nil {
+		if err := nodeDB.AddAddresses(c.Context(), c.Params("cluster", ""), node, addresses...); err != nil {
 			logger.Error("failed to add known endpoints",
 				zap.String("cluster", c.Params("cluster", "")),
 				zap.String("node", node),
 				zap.Strings("addresses", addressToString(addresses)),
 				zap.Error(err),
 			)
-         return c.SendStatus(http.StatusInternalServerError)
+			return c.SendStatus(http.StatusInternalServerError)
 		}
 
-      return c.SendStatus(http.StatusNoContent)
+		return c.SendStatus(http.StatusNoContent)
 	})
 
-   app.Post("/:cluster", func(c *fiber.Ctx) error {
-      n := new(types.Node)
+	app.Post("/:cluster", func(c *fiber.Ctx) error {
+		n := new(types.Node)
 
-      if err := c.BodyParser(n); err != nil {
+		if err := c.BodyParser(n); err != nil {
 			logger.Error("failed to parse node POST",
 				zap.String("cluster", c.Params("cluster", "")),
 				zap.Error(err),
 			)
-         return c.SendStatus(http.StatusBadRequest)
-      }
+			return c.SendStatus(http.StatusBadRequest)
+		}
 
-      if err := nodeDB.Add(c.Params("cluster", ""), n); err != nil {
+		if err := nodeDB.Add(c.Context(), c.Params("cluster", ""), n); err != nil {
 			logger.Error("failed to add/update node",
 				zap.String("cluster", c.Params("cluster", "")),
 				zap.String("node", n.ID),
@@ -162,35 +171,41 @@ func main() {
 				zap.Strings("addresses", addressToString(n.Addresses)),
 				zap.Error(err),
 			)
-         return c.SendStatus(http.StatusInternalServerError)
-      }
+			return c.SendStatus(http.StatusInternalServerError)
+		}
 
 		logger.Info("add/update node",
-				zap.String("cluster", c.Params("cluster", "")),
-				zap.String("node", n.ID),
-				zap.String("ip", n.IP.String()),
-				zap.Strings("addresses", addressToString(n.Addresses)),
+			zap.String("cluster", c.Params("cluster", "")),
+			zap.String("node", n.ID),
+			zap.String("ip", n.IP.String()),
+			zap.Strings("addresses", addressToString(n.Addresses)),
 		)
 
-      return c.SendStatus(http.StatusNoContent)
-   })
+		return c.SendStatus(http.StatusNoContent)
+	})
 
+	go func() {
+		for {
+			time.Sleep(time.Hour)
+
+			nodeDB.Clean()
+		}
+	}()
 	logger.Fatal("listen exited",
 		zap.Error(app.Listen(listenAddr)),
 	)
 }
 
 func addressToString(addresses []*types.Address) (out []string) {
-		for _, a := range addresses {
-			ep, err := a.Endpoint(defaultPort)
-			if err != nil {
-				out = append(out, err.Error())
+	for _, a := range addresses {
+		if !a.IP.IsZero() {
+			out = append(out, a.IP.String())
 
-				continue
-			}
-
-			out = append(out, ep.String())
+			continue
 		}
 
-		return out
+		out = append(out, a.Name)
+	}
+
+	return out
 }

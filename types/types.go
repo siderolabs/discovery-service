@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"sync"
@@ -11,17 +12,17 @@ import (
 
 // Address describes an IP or DNS address with optional Port.
 type Address struct {
-	// DNSName is the DNS name of this NodeAddress, if known.
-	Name string
+	// Name is the DNS name of this NodeAddress, if known.
+	Name string `json:"name,omitempty"`
 
 	// IP is the IP address of this NodeAddress, if known.
-	IP netaddr.IP
+	IP netaddr.IP `json:"ip,omitempty"`
 
 	// Port is the port number for this NodeAddress, if known.
-	Port uint16
+	Port uint16 `json:"port,omitempty"`
 
 	// LastReported indicates the time at which this address was last reported.
-	LastReported time.Time
+	LastReported time.Time `json:"lastReported"`
 }
 
 // EqualHost indicates whether two addresses have the same host portion, ignoring the ports.
@@ -138,4 +139,16 @@ func (n *Node) ExpireAddressesOlderThan(maxAge time.Duration) {
 	}
 
 	n.Addresses = n.Addresses[:i]
+}
+
+// MarshalBinary implements encoding.BinaryMarshaler
+func (n *Node) MarshalBinary() ([]byte, error) {
+	return json.Marshal(n)
+}
+
+// UnmarshalBinary implements encoding.BinaryUnmarshaler
+func (n *Node) UnmarshalBinary(data []byte) error {
+	*n = Node{}
+
+	return json.Unmarshal(data, n)
 }
