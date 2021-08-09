@@ -7,13 +7,16 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
 	"github.com/talos-systems/kubespan-manager/internal/db"
 	"github.com/talos-systems/kubespan-manager/pkg/types"
@@ -22,16 +25,15 @@ import (
 var (
 	listenAddr = ":3000"
 	devMode    bool
+	nodeDB     db.DB
 )
-
-var nodeDB db.DB
 
 func init() {
 	flag.StringVar(&listenAddr, "addr", ":3000", "addr on which to listen")
 	flag.BoolVar(&devMode, "debug", false, "enable debug mode")
 }
 
-//nolint:gocognit
+//nolint:gocognit,gocyclo,cyclop
 func main() {
 	flag.Parse()
 
@@ -68,12 +70,21 @@ func main() {
 			return c.SendStatus(http.StatusBadRequest)
 		}
 
+		if e := validateClusterID(cluster); e != nil {
+			logger.Error("bad cluster ID",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.Error(e),
+			)
+
+			return c.SendStatus(http.StatusBadRequest)
+		}
+
 		list, e := nodeDB.List(c.Context(), cluster)
 		if e != nil {
 			if errors.Is(e, db.ErrNotFound) {
 				logger.Warn("cluster not found",
 					zap.String("cluster", cluster),
-					zap.Error(err),
+					zap.Error(e),
 				)
 
 				return c.SendStatus(http.StatusNotFound)
@@ -94,6 +105,25 @@ func main() {
 		cluster := c.Params("cluster", "")
 		if cluster == "" {
 			logger.Error("empty cluster for node get")
+
+			return c.SendStatus(http.StatusBadRequest)
+		}
+
+		if e := validateClusterID(cluster); e != nil {
+			logger.Error("bad cluster ID",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.Error(e),
+			)
+
+			return c.SendStatus(http.StatusBadRequest)
+		}
+
+		if e := validatePublicKey(c.Params("node")); e != nil {
+			logger.Error("bad node ID",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.String("node", c.Params("node", "")),
+				zap.Error(e),
+			)
 
 			return c.SendStatus(http.StatusBadRequest)
 		}
@@ -137,11 +167,30 @@ func main() {
 	app.Put("/:cluster/:node", func(c *fiber.Ctx) error {
 		var addresses []*types.Address
 
+		if e := validateClusterID(c.Params("cluster")); e != nil {
+			logger.Error("bad cluster ID",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.Error(e),
+			)
+
+			return c.SendStatus(http.StatusBadRequest)
+		}
+
+		if e := validatePublicKey(c.Params("node")); e != nil {
+			logger.Error("bad node ID",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.String("node", c.Params("node", "")),
+				zap.Error(e),
+			)
+
+			return c.SendStatus(http.StatusBadRequest)
+		}
+
 		if e := c.BodyParser(&addresses); e != nil {
 			logger.Error("failed to parse node PUT",
 				zap.String("cluster", c.Params("cluster", "")),
 				zap.String("node", c.Params("node", "")),
-				zap.Error(err),
+				zap.Error(e),
 			)
 
 			return c.SendStatus(http.StatusBadRequest)
@@ -152,7 +201,6 @@ func main() {
 			logger.Error("invalid node key",
 				zap.String("cluster", c.Params("cluster", "")),
 				zap.String("node", c.Params("node", "")),
-				zap.Error(err),
 			)
 		}
 
@@ -173,9 +221,28 @@ func main() {
 	app.Post("/:cluster", func(c *fiber.Ctx) error {
 		n := new(types.Node)
 
+		if err := validateClusterID(c.Params("cluster")); err != nil {
+			logger.Error("bad cluster ID",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.Error(err),
+			)
+
+			return c.SendStatus(http.StatusBadRequest)
+		}
+
 		if err := c.BodyParser(n); err != nil {
 			logger.Error("failed to parse node POST",
 				zap.String("cluster", c.Params("cluster", "")),
+				zap.Error(err),
+			)
+
+			return c.SendStatus(http.StatusBadRequest)
+		}
+
+		if err := validatePublicKey(n.ID); err != nil {
+			logger.Error("bad node ID",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.String("node", n.ID),
 				zap.Error(err),
 			)
 
@@ -228,4 +295,20 @@ func addressToString(addresses []*types.Address) (out []string) {
 	}
 
 	return out
+}
+
+func validateClusterID(cluster string) error {
+	if _, err := uuid.Parse(cluster); err != nil {
+		return fmt.Errorf("cluster ID is not a valid UUID: %w", err)
+	}
+
+	return nil
+}
+
+func validatePublicKey(key string) error {
+	if _, err := wgtypes.ParseKey(key); err != nil {
+		return fmt.Errorf("node ID is not a valid wireguard key")
+	}
+
+	return nil
 }
