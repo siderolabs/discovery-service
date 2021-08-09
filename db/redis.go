@@ -90,9 +90,7 @@ func (d *redisDB) AddAddresses(ctx context.Context, cluster string, id string, e
 }
 
 // Clean implements db.DB
-func (d *redisDB) Clean() {
-	return // no-op
-}
+func (d *redisDB) Clean() {} // no-op
 
 // Get implements db.DB
 func (d *redisDB) Get(ctx context.Context, cluster string, id string) (*types.Node, error) {

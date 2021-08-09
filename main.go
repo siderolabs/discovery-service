@@ -2,21 +2,22 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/talos-systems/wglan-manager/db"
 	"github.com/talos-systems/wglan-manager/types"
 	"go.uber.org/zap"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 var listenAddr = ":3000"
 var devMode bool
-
-const defaultPort = 5000
 
 var nodeDB db.DB
 
@@ -63,6 +64,14 @@ func main() {
 			return c.SendStatus(http.StatusBadRequest)
 		}
 
+		if err := validateClusterID(cluster); err != nil {
+			logger.Error("bad cluster ID",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.Error(err),
+			)
+			return c.SendStatus(http.StatusBadRequest)
+		}
+
 		list, err := nodeDB.List(c.Context(), cluster)
 		if len(list) < 1 {
 			logger.Warn("cluster not found",
@@ -85,6 +94,23 @@ func main() {
 		cluster := c.Params("cluster", "")
 		if cluster == "" {
 			logger.Error("empty cluster for node get")
+			return c.SendStatus(http.StatusBadRequest)
+		}
+
+		if err := validateClusterID(cluster); err != nil {
+			logger.Error("bad cluster ID",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.Error(err),
+			)
+			return c.SendStatus(http.StatusBadRequest)
+		}
+
+		if err := validatePublicKey(c.Params("node")); err != nil {
+			logger.Error("bad node ID",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.String("node", c.Params("node", "")),
+				zap.Error(err),
+			)
 			return c.SendStatus(http.StatusBadRequest)
 		}
 
@@ -121,6 +147,23 @@ func main() {
 	app.Put("/:cluster/:node", func(c *fiber.Ctx) error {
 		var addresses []*types.Address
 
+		if err := validateClusterID(c.Params("cluster")); err != nil {
+			logger.Error("bad cluster ID",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.Error(err),
+			)
+			return c.SendStatus(http.StatusBadRequest)
+		}
+
+		if err := validatePublicKey(c.Params("node")); err != nil {
+			logger.Error("bad node ID",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.String("node", c.Params("node", "")),
+				zap.Error(err),
+			)
+			return c.SendStatus(http.StatusBadRequest)
+		}
+
 		if err := c.BodyParser(&addresses); err != nil {
 			logger.Error("failed to parse node PUT",
 				zap.String("cluster", c.Params("cluster", "")),
@@ -155,9 +198,26 @@ func main() {
 	app.Post("/:cluster", func(c *fiber.Ctx) error {
 		n := new(types.Node)
 
+		if err := validateClusterID(c.Params("cluster")); err != nil {
+			logger.Error("bad cluster ID",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.Error(err),
+			)
+			return c.SendStatus(http.StatusBadRequest)
+		}
+
 		if err := c.BodyParser(n); err != nil {
 			logger.Error("failed to parse node POST",
 				zap.String("cluster", c.Params("cluster", "")),
+				zap.Error(err),
+			)
+			return c.SendStatus(http.StatusBadRequest)
+		}
+
+		if err := validatePublicKey(n.ID); err != nil {
+			logger.Error("bad node ID",
+				zap.String("cluster", c.Params("cluster", "")),
+				zap.String("node", n.ID),
 				zap.Error(err),
 			)
 			return c.SendStatus(http.StatusBadRequest)
@@ -208,4 +268,20 @@ func addressToString(addresses []*types.Address) (out []string) {
 	}
 
 	return out
+}
+
+func validateClusterID(cluster string) error {
+	if _, err := uuid.Parse(cluster); err != nil {
+		return fmt.Errorf("cluster ID is not a valid UUID: %w", err)
+	}
+
+	return nil
+}
+
+func validatePublicKey(key string) error {
+	if _, err := wgtypes.ParseKey(key); err != nil {
+		return fmt.Errorf("node ID is not a valid wireguard key")
+	}
+
+	return nil
 }
