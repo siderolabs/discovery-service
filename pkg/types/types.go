@@ -1,3 +1,8 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+// Package types contains all manager data types.
 package types
 
 import (
@@ -12,22 +17,19 @@ import (
 
 // Address describes an IP or DNS address with optional Port.
 type Address struct {
-	// Name is the DNS name of this NodeAddress, if known.
-	Name string `json:"name,omitempty"`
-
-	// IP is the IP address of this NodeAddress, if known.
-	IP netaddr.IP `json:"ip,omitempty"`
-
-	// Port is the port number for this NodeAddress, if known.
-	Port uint16 `json:"port,omitempty"`
-
 	// LastReported indicates the time at which this address was last reported.
 	LastReported time.Time `json:"lastReported"`
+	// IP is the IP address of this NodeAddress, if known.
+	IP netaddr.IP `json:"ip,omitempty"`
+	// Name is the DNS name of this NodeAddress, if known.
+	Name string `json:"name,omitempty"`
+	// Port is the port number for this NodeAddress, if known.
+	Port uint16 `json:"port,omitempty"`
 }
 
 // EqualHost indicates whether two addresses have the same host portion, ignoring the ports.
 func (a *Address) EqualHost(other *Address) bool {
-	if ! a.IP.IsZero() || ! other.IP.IsZero() {
+	if !a.IP.IsZero() || !other.IP.IsZero() {
 		return a.IP == other.IP
 	}
 
@@ -67,7 +69,7 @@ func (a *Address) Endpoint(defaultPort uint16) (*net.UDPAddr, error) {
 	return net.ResolveUDPAddr(proto, fmt.Sprintf("%s:%d", addr, port))
 }
 
-// Node describes a Wireguard Peer
+// Node describes a Wireguard Peer.
 type Node struct {
 	// Name is the human-readable identifier of this Node.
 	// Usually, this is the kubernetes Node name.
@@ -88,7 +90,7 @@ type Node struct {
 }
 
 // AddAddresses adds a set of addresses to a Node.
-func (n *Node) AddAddresses(addresses ... *Address) {
+func (n *Node) AddAddresses(addresses ...*Address) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
@@ -134,19 +136,17 @@ func (n *Node) ExpireAddressesOlderThan(maxAge time.Duration) {
 
 			continue
 		}
-
-		a = nil
 	}
 
 	n.Addresses = n.Addresses[:i]
 }
 
-// MarshalBinary implements encoding.BinaryMarshaler
+// MarshalBinary implements encoding.BinaryMarshaler.
 func (n *Node) MarshalBinary() ([]byte, error) {
 	return json.Marshal(n)
 }
 
-// UnmarshalBinary implements encoding.BinaryUnmarshaler
+// UnmarshalBinary implements encoding.BinaryUnmarshaler.
 func (n *Node) UnmarshalBinary(data []byte) error {
 	*n = Node{}
 

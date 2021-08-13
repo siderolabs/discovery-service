@@ -1,0 +1,16 @@
+# THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
+#
+# Generated on 2021-08-13T12:22:39Z by kres 907039b.
+
+
+# commit to be tagged for the new release
+commit = "HEAD"
+
+project_name = "wglan-manager"
+github_repo = "talos-systems/wglan-manager"
+match_deps = "^github.com/(talos-systems/[a-zA-Z0-9-]+)$"
+
+# previous = -
+# pre_release = true
+
+# [notes]

@@ -1,0 +1,35 @@
+# THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
+#
+# Generated on 2021-08-13T12:22:39Z by kres 907039b.
+
+policies:
+- type: commit
+  spec:
+    dco: true
+    gpg: false
+    spellcheck:
+      locale: US
+    maximumOfOneCommit: true
+    header:
+      length: 89
+      imperative: true
+      case: lower
+      invalidLastCharacters: .
+    body:
+      required: true
+    conventional:
+      types: ["chore","docs","perf","refactor","style","test","release"]
+      scopes: [".*"]
+- type: license
+  spec:
+    skipPaths:
+      - .git/
+    includeSuffixes:
+      - .go
+    excludeSuffixes:
+      - .pb.go
+      - .pb.gw.go
+    header: |
+      // This Source Code Form is subject to the terms of the Mozilla Public
+      // License, v. 2.0. If a copy of the MPL was not distributed with this
+      // file, You can obtain one at http://mozilla.org/MPL/2.0/.

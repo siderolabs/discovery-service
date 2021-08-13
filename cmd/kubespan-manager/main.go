@@ -1,6 +1,11 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 package main
 
 import (
+	"errors"
 	"flag"
 	"log"
 	"net/http"
@@ -8,15 +13,16 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/talos-systems/wglan-manager/db"
-	"github.com/talos-systems/wglan-manager/types"
 	"go.uber.org/zap"
+
+	"github.com/talos-systems/kubespan-manager/internal/db"
+	"github.com/talos-systems/kubespan-manager/pkg/types"
 )
 
-var listenAddr = ":3000"
-var devMode bool
-
-const defaultPort = 5000
+var (
+	listenAddr = ":3000"
+	devMode    bool
+)
 
 var nodeDB db.DB
 
@@ -25,31 +31,29 @@ func init() {
 	flag.BoolVar(&devMode, "debug", false, "enable debug mode")
 }
 
+//nolint:gocognit
 func main() {
-
 	flag.Parse()
 
 	logger, err := zap.NewProduction()
 	if err != nil {
-		log.Fatalln("failed to initialise logger:", err)
+		log.Fatalln("failed to initialize logger:", err)
 	}
 
 	if os.Getenv("MODE") == "dev" {
 		devMode = true
 		logger, err = zap.NewDevelopment()
+
 		if err != nil {
-			log.Fatalln("failed to initialise development logger:", err)
+			log.Fatalln("failed to initialize development logger:", err)
 		}
 	}
-
-	defer logger.Sync() // nolint: errcheck
 
 	if os.Getenv("REDIS_ADDR") != "" {
 		nodeDB, err = db.NewRedis(os.Getenv("REDIS_ADDR"), logger)
 		if err != nil {
 			log.Fatalln("failed to connect to redis: %w", err)
 		}
-
 	} else {
 		nodeDB = db.New(logger)
 	}
@@ -60,16 +64,22 @@ func main() {
 		cluster := c.Params("cluster")
 		if cluster == "" {
 			logger.Error("empty cluster for node list")
+
 			return c.SendStatus(http.StatusBadRequest)
 		}
 
-		list, err := nodeDB.List(c.Context(), cluster)
-		if len(list) < 1 {
-			logger.Warn("cluster not found",
-				zap.String("cluster", cluster),
-				zap.Error(err),
-			)
-			return c.SendStatus(http.StatusNotFound)
+		list, e := nodeDB.List(c.Context(), cluster)
+		if e != nil {
+			if errors.Is(e, db.ErrNotFound) {
+				logger.Warn("cluster not found",
+					zap.String("cluster", cluster),
+					zap.Error(err),
+				)
+
+				return c.SendStatus(http.StatusNotFound)
+			}
+
+			return c.SendStatus(http.StatusInternalServerError)
 		}
 
 		logger.Info("listing cluster nodes",
@@ -78,13 +88,13 @@ func main() {
 		)
 
 		return c.JSON(list)
-
 	})
 
 	app.Get("/:cluster/:node", func(c *fiber.Ctx) error {
 		cluster := c.Params("cluster", "")
 		if cluster == "" {
 			logger.Error("empty cluster for node get")
+
 			return c.SendStatus(http.StatusBadRequest)
 		}
 
@@ -93,17 +103,23 @@ func main() {
 			logger.Error("empty node for node get",
 				zap.String("cluster", c.Params("cluster", "")),
 			)
+
 			return c.SendStatus(http.StatusBadRequest)
 		}
 
-		n, err := nodeDB.Get(c.Context(), cluster, node)
-		if err != nil {
-			logger.Warn("node not found",
-				zap.String("cluster", cluster),
-				zap.String("node", node),
-				zap.Error(err),
-			)
-			return c.SendStatus(http.StatusNotFound)
+		n, e := nodeDB.Get(c.Context(), cluster, node)
+		if e != nil {
+			if errors.Is(e, db.ErrNotFound) {
+				logger.Warn("node not found",
+					zap.String("cluster", cluster),
+					zap.String("node", node),
+					zap.Error(err),
+				)
+
+				return c.SendStatus(http.StatusNotFound)
+			}
+
+			return c.SendStatus(http.StatusInternalServerError)
 		}
 
 		logger.Info("returning cluster node",
@@ -121,12 +137,13 @@ func main() {
 	app.Put("/:cluster/:node", func(c *fiber.Ctx) error {
 		var addresses []*types.Address
 
-		if err := c.BodyParser(&addresses); err != nil {
+		if e := c.BodyParser(&addresses); e != nil {
 			logger.Error("failed to parse node PUT",
 				zap.String("cluster", c.Params("cluster", "")),
 				zap.String("node", c.Params("node", "")),
 				zap.Error(err),
 			)
+
 			return c.SendStatus(http.StatusBadRequest)
 		}
 
@@ -146,6 +163,7 @@ func main() {
 				zap.Strings("addresses", addressToString(addresses)),
 				zap.Error(err),
 			)
+
 			return c.SendStatus(http.StatusInternalServerError)
 		}
 
@@ -160,6 +178,7 @@ func main() {
 				zap.String("cluster", c.Params("cluster", "")),
 				zap.Error(err),
 			)
+
 			return c.SendStatus(http.StatusBadRequest)
 		}
 
@@ -171,6 +190,7 @@ func main() {
 				zap.Strings("addresses", addressToString(n.Addresses)),
 				zap.Error(err),
 			)
+
 			return c.SendStatus(http.StatusInternalServerError)
 		}
 

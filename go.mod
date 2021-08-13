@@ -1,4 +1,4 @@
-module github.com/talos-systems/wglan-manager
+module github.com/talos-systems/kubespan-manager
 
 go 1.16
 

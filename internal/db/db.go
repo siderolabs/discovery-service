@@ -1,30 +1,41 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+// Package db contains state storage logic.
 package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/talos-systems/wglan-manager/types"
 	"go.uber.org/zap"
+
+	"github.com/talos-systems/kubespan-manager/pkg/types"
 )
+
+// ErrNotFound means that record is not found in DB.
+var ErrNotFound = errors.New("not found")
 
 // AddressExpirationTimeout is the amount of time after which addresses of a node should be expired.
 const AddressExpirationTimeout = 10 * time.Minute
 
+// DB manager state persistent storage interface.
 type DB interface {
 	// Add adds a set of known Endpoints to a node, creating the node, if it does not exist.
 	Add(ctx context.Context, cluster string, n *types.Node) error
 
 	// AddAddresses adds a set of addresses for a node.
-	AddAddresses(ctx context.Context, cluster string, id string, ep ...*types.Address) error
+	AddAddresses(ctx context.Context, cluster, id string, ep ...*types.Address) error
 
 	// Clean executes a database cleanup routine.
 	Clean()
 
 	// Get returns the details of the node.
-	Get(ctx context.Context, cluster string, id string) (*types.Node, error)
+	Get(ctx context.Context, cluster, id string) (*types.Node, error)
 
 	// List returns the set of Nodes for the given Cluster.
 	List(ctx context.Context, cluster string) ([]*types.Node, error)
@@ -32,19 +43,19 @@ type DB interface {
 
 type ramDB struct {
 	logger *zap.Logger
-	db map[string]map[string]*types.Node
-	mu sync.RWMutex
+	db     map[string]map[string]*types.Node
+	mu     sync.RWMutex
 }
 
 // New returns a new database.
 func New(logger *zap.Logger) DB {
 	return &ramDB{
 		logger: logger,
-		db: make(map[string]map[string]*types.Node),
+		db:     make(map[string]map[string]*types.Node),
 	}
 }
 
-// Add implements DB
+// Add implements DB.
 func (d *ramDB) Add(ctx context.Context, cluster string, n *types.Node) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -66,7 +77,7 @@ func (d *ramDB) Add(ctx context.Context, cluster string, n *types.Node) error {
 	return nil
 }
 
-func (d *ramDB) AddAddresses(ctx context.Context, cluster string, id string, addresses ...*types.Address) error {
+func (d *ramDB) AddAddresses(ctx context.Context, cluster, id string, addresses ...*types.Address) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -85,6 +96,7 @@ func (d *ramDB) AddAddresses(ctx context.Context, cluster string, id string, add
 	return nil
 }
 
+// List implements DB.
 func (d *ramDB) List(ctx context.Context, cluster string) (list []*types.Node, err error) {
 	c, ok := d.db[cluster]
 	if !ok {
@@ -99,11 +111,15 @@ func (d *ramDB) List(ctx context.Context, cluster string) (list []*types.Node, e
 		}
 	}
 
+	if len(list) == 0 {
+		return nil, ErrNotFound
+	}
+
 	return list, nil
 }
 
-// Get implements DB
-func (d *ramDB) Get(ctx context.Context, cluster string, id string) (*types.Node, error) {
+// Get implements DB.
+func (d *ramDB) Get(ctx context.Context, cluster, id string) (*types.Node, error) {
 	d.mu.RLock()
 	defer d.mu.Unlock()
 
@@ -114,7 +130,7 @@ func (d *ramDB) Get(ctx context.Context, cluster string, id string) (*types.Node
 
 	n, ok := c[id]
 	if !ok {
-		return nil, fmt.Errorf("node %q in cluster %q not found", id, cluster)
+		return nil, ErrNotFound
 	}
 
 	return n, nil
@@ -131,7 +147,6 @@ func (d *ramDB) Clean() {
 		var nodeDeleteList []string
 
 		for id, n := range c {
-
 			n.ExpireAddressesOlderThan(AddressExpirationTimeout)
 
 			if len(n.Addresses) < 1 {
@@ -144,7 +159,7 @@ func (d *ramDB) Clean() {
 			delete(c, id)
 		}
 
-		if len(c) < 0 {
+		if len(c) == 0 {
 			clusterDeleteList = append(clusterDeleteList, clusterID)
 		}
 	}

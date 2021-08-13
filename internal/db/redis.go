@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 package db
 
 import (
@@ -7,8 +11,9 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/talos-systems/wglan-manager/types"
 	"go.uber.org/zap"
+
+	"github.com/talos-systems/kubespan-manager/pkg/types"
 )
 
 const redisTTL = 12 * time.Minute
@@ -19,8 +24,9 @@ type redisDB struct {
 	rc *redis.Client
 }
 
+// NewRedis creates new redis DB.
 func NewRedis(addr string, logger *zap.Logger) (DB, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	rc := redis.NewClient(&redis.Options{
@@ -32,7 +38,7 @@ func NewRedis(addr string, logger *zap.Logger) (DB, error) {
 	}
 
 	return &redisDB{
-		rc: rc,
+		rc:     rc,
 		logger: logger,
 	}, nil
 }
@@ -53,7 +59,7 @@ func (d *redisDB) clusterAddressKey(cluster string, addr *types.Address) string 
 	return fmt.Sprintf("cluster:%s:address:%s", cluster, addr.Name)
 }
 
-// Add implements db.DB
+// Add implements db.DB.
 func (d *redisDB) Add(ctx context.Context, cluster string, n *types.Node) error {
 	tx := d.rc.TxPipeline()
 
@@ -77,8 +83,8 @@ func (d *redisDB) Add(ctx context.Context, cluster string, n *types.Node) error 
 	return err
 }
 
-// AddAddresses implements db.DB
-func (d *redisDB) AddAddresses(ctx context.Context, cluster string, id string, ep ...*types.Address) error {
+// AddAddresses implements db.DB.
+func (d *redisDB) AddAddresses(ctx context.Context, cluster, id string, ep ...*types.Address) error {
 	n, err := d.Get(ctx, cluster, id)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve node %q from cluster %q: %w", id, cluster, err)
@@ -89,19 +95,19 @@ func (d *redisDB) AddAddresses(ctx context.Context, cluster string, id string, e
 	return d.Add(ctx, cluster, n)
 }
 
-// Clean implements db.DB
+// Clean implements db.DB.
 func (d *redisDB) Clean() {
-	return // no-op
 }
 
-// Get implements db.DB
-func (d *redisDB) Get(ctx context.Context, cluster string, id string) (*types.Node, error) {
+// Get implements db.DB.
+func (d *redisDB) Get(ctx context.Context, cluster, id string) (*types.Node, error) {
 	n := new(types.Node)
 
 	if err := d.rc.Get(ctx, d.clusterNodeKey(cluster, id)).Scan(n); err != nil {
 		if errors.Is(redis.Nil, err) {
-			return nil, err
+			return nil, ErrNotFound
 		}
+
 		return nil, fmt.Errorf("failed to parse node %q of cluster %q: %w", id, cluster, err)
 	}
 
@@ -119,14 +125,18 @@ func (d *redisDB) Get(ctx context.Context, cluster string, id string) (*types.No
 	return n, nil
 }
 
-// List implements db.DB
+// List implements db.DB.
 func (d *redisDB) List(ctx context.Context, cluster string) ([]*types.Node, error) {
 	nodeList, err := d.rc.SMembers(ctx, d.clusterNodesKey(cluster)).Result()
 	if err != nil {
+		if errors.Is(redis.Nil, err) {
+			return nil, ErrNotFound
+		}
+
 		return nil, fmt.Errorf("failed to get members of cluster %q: %w", cluster, err)
 	}
 
-	var ret []*types.Node
+	ret := make([]*types.Node, 0, len(nodeList))
 
 	for _, id := range nodeList {
 		n, err := d.Get(ctx, cluster, id)
@@ -146,9 +156,9 @@ func (d *redisDB) List(ctx context.Context, cluster string) ([]*types.Node, erro
 				}
 			} else {
 				d.logger.Error("failed to get node listen in nodeList",
-						zap.String("node", id),
-						zap.String("cluster", cluster),
-						zap.Error(err),
+					zap.String("node", id),
+					zap.String("cluster", cluster),
+					zap.Error(err),
 				)
 			}
 
@@ -156,6 +166,10 @@ func (d *redisDB) List(ctx context.Context, cluster string) ([]*types.Node, erro
 		}
 
 		ret = append(ret, n)
+	}
+
+	if len(ret) == 0 {
+		return nil, ErrNotFound
 	}
 
 	return ret, nil

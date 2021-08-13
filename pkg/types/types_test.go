@@ -1,18 +1,23 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 package types_test
 
 import (
 	"testing"
 	"time"
 
-	"github.com/talos-systems/wglan-manager/types"
 	"inet.af/netaddr"
+
+	"github.com/talos-systems/kubespan-manager/pkg/types"
 )
 
 func TestEncoderDecoder(t *testing.T) {
 	n := &types.Node{
-		Name:      "tester",
-		ID:        "IHOPEfmiUG1kE832FAxm77J5WP0O1ZHp9OwqbGowL1E=",
-		IP:        netaddr.MustParseIP("2001:db8:1001::1"),
+		Name: "tester",
+		ID:   "IHOPEfmiUG1kE832FAxm77J5WP0O1ZHp9OwqbGowL1E=",
+		IP:   netaddr.MustParseIP("2001:db8:1001::1"),
 		Addresses: []*types.Address{
 			{
 				Name:         "mynode.mydomain.com",
