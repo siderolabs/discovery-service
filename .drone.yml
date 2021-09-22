@@ -1,7 +1,7 @@
 ---
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2021-08-13T12:23:41Z by kres 907039b.
+# Generated on 2021-09-21T13:33:04Z by kres 7412de4-dirty.
 
 kind: pipeline
 type: kubernetes
@@ -105,11 +105,11 @@ steps:
   depends_on:
   - unit-tests
 
-- name: kubespan-manager
+- name: discovery-service
   pull: always
   image: autonomy/build-container:latest
   commands:
-  - make kubespan-manager
+  - make discovery-service
   volumes:
   - name: outer-docker-socket
     path: /var/outer-run
@@ -139,11 +139,11 @@ steps:
   depends_on:
   - base
 
-- name: image-kubespan-manager
+- name: image-discovery-service
   pull: always
   image: autonomy/build-container:latest
   commands:
-  - make image-kubespan-manager
+  - make image-discovery-service
   volumes:
   - name: outer-docker-socket
     path: /var/outer-run
@@ -154,16 +154,16 @@ steps:
   - name: ssh
     path: /root/.ssh
   depends_on:
-  - kubespan-manager
+  - discovery-service
   - lint
   - unit-tests
 
-- name: push-kubespan-manager
+- name: push-discovery-service
   pull: always
   image: autonomy/build-container:latest
   commands:
   - docker login ghcr.io --username "$${GHCR_USERNAME}" --password "$${GHCR_PASSWORD}"
-  - make image-kubespan-manager
+  - make image-discovery-service
   environment:
     GHCR_PASSWORD:
       from_secret: ghcr_token
@@ -184,14 +184,14 @@ steps:
       exclude:
       - pull_request
   depends_on:
-  - image-kubespan-manager
+  - image-discovery-service
 
-- name: push-kubespan-manager-latest
+- name: push-discovery-service-latest
   pull: always
   image: autonomy/build-container:latest
   commands:
   - docker login ghcr.io --username "$${GHCR_USERNAME}" --password "$${GHCR_PASSWORD}"
-  - make image-kubespan-manager TAG=latest
+  - make image-discovery-service TAG=latest
   environment:
     GHCR_PASSWORD:
       from_secret: ghcr_token
@@ -214,7 +214,7 @@ steps:
       exclude:
       - pull_request
   depends_on:
-  - push-kubespan-manager
+  - push-discovery-service
 
 - name: release-notes
   pull: always
@@ -236,8 +236,8 @@ steps:
   depends_on:
   - unit-tests
   - coverage
-  - kubespan-manager
-  - image-kubespan-manager
+  - discovery-service
+  - image-discovery-service
   - lint
 
 - name: release
@@ -270,7 +270,7 @@ steps:
 
 services:
 - name: docker
-  image: docker:19.03-dind
+  image: docker:20.10-dind
   entrypoint:
   - dockerd
   commands:

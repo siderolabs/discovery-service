@@ -1,7 +1,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2021-08-13T12:32:42Z by kres 907039b.
-
+# Generated on 2021-09-21T13:11:46Z by kres 7412de4-dirty.
 
 # options for analysis running
 run:
@@ -22,7 +21,6 @@ output:
   uniq-by-line: true
   path-prefix: ""
 
-
 # all available settings of specific linters
 linters-settings:
   dogsled:
@@ -38,7 +36,7 @@ linters-settings:
     lines: 60
     statements: 40
   gci:
-    local-prefixes: github.com/talos-systems/kubespan-manager
+    local-prefixes: github.com/talos-systems/discovery-service
   gocognit:
     min-complexity: 30
   nestif:
@@ -60,7 +58,7 @@ linters-settings:
   gofmt:
     simplify: true
   goimports:
-    local-prefixes: github.com/talos-systems/kubespan-manager
+    local-prefixes: github.com/talos-systems/discovery-service
   golint:
     min-confidence: 0.8
   gomnd:
@@ -116,23 +114,30 @@ linters-settings:
 
 linters:
   enable-all: true
-  disable:
-    - gas
-    - typecheck
-    - gochecknoglobals
-    - gochecknoinits
-    - funlen
-    - godox
-    - gomnd
-    - goerr113
-    - nestif
-    - wrapcheck
-    - paralleltest
-    - exhaustivestruct
-    - forbidigo
   disable-all: false
   fast: false
-
+  disable:
+    - exhaustivestruct
+    - forbidigo
+    - funlen
+    - gas
+    - gochecknoglobals
+    - gochecknoinits
+    - godox
+    - goerr113
+    - gomnd
+    - gomoddirectives
+    - nestif
+    - paralleltest
+    - tagliatelle
+    - thelper
+    - typecheck
+    - wrapcheck
+    # abandoned linters for which golangci shows the warning that the repo is archived by the owner
+    - interfacer
+    - maligned
+    - golint
+    - scopelint
 
 issues:
   exclude: []
@@ -141,10 +146,8 @@ issues:
   exclude-case-sensitive: false
   max-issues-per-linter: 10
   max-same-issues: 3
-
   new: false
 
 severity:
   default-severity: error
-
   case-sensitive: false

@@ -1,11 +1,12 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2021-08-13T12:32:42Z by kres 907039b.
+# Generated on 2021-09-22T18:49:05Z by kres 2a27963-dirty.
 
 **
+!api
+!cmd
 !internal
 !pkg
-!cmd
 !go.mod
 !go.sum
 !.golangci.yml

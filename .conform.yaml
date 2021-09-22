@@ -1,12 +1,16 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2021-08-13T12:22:39Z by kres 907039b.
+# Generated on 2021-09-21T18:51:27Z by kres 7412de4-dirty.
 
+---
 policies:
 - type: commit
   spec:
     dco: true
-    gpg: false
+    gpg:
+      required: true
+      identity:
+        gitHubOrganization: talos-systems
     spellcheck:
       locale: US
     maximumOfOneCommit: true

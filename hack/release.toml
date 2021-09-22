@@ -6,8 +6,8 @@
 # commit to be tagged for the new release
 commit = "HEAD"
 
-project_name = "wglan-manager"
-github_repo = "talos-systems/wglan-manager"
+project_name = "discovery-service"
+github_repo = "talos-systems/discovery-service"
 match_deps = "^github.com/(talos-systems/[a-zA-Z0-9-]+)$"
 
 # previous = -
