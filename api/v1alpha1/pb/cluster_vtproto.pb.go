@@ -6,12 +6,11 @@ package pb
 
 import (
 	fmt "fmt"
-	io "io"
-	bits "math/bits"
-
 	proto "google.golang.org/protobuf/proto"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
+	io "io"
+	bits "math/bits"
 )
 
 const (
@@ -579,15 +578,17 @@ func (m *WatchResponse) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x10
 	}
-	if m.Affiliate != nil {
-		size, err := m.Affiliate.MarshalToSizedBufferVT(dAtA[:i])
-		if err != nil {
-			return 0, err
+	if len(m.Affiliates) > 0 {
+		for iNdEx := len(m.Affiliates) - 1; iNdEx >= 0; iNdEx-- {
+			size, err := m.Affiliates[iNdEx].MarshalToSizedBufferVT(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarint(dAtA, i, uint64(size))
+			i--
+			dAtA[i] = 0xa
 		}
-		i -= size
-		i = encodeVarint(dAtA, i, uint64(size))
-		i--
-		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
@@ -603,7 +604,6 @@ func encodeVarint(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-
 func (m *Affiliate) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -828,9 +828,11 @@ func (m *WatchResponse) SizeVT() (n int) {
 	}
 	var l int
 	_ = l
-	if m.Affiliate != nil {
-		l = m.Affiliate.SizeVT()
-		n += 1 + l + sov(uint64(l))
+	if len(m.Affiliates) > 0 {
+		for _, e := range m.Affiliates {
+			l = e.SizeVT()
+			n += 1 + l + sov(uint64(l))
+		}
 	}
 	if m.Deleted {
 		n += 2
@@ -844,11 +846,9 @@ func (m *WatchResponse) SizeVT() (n int) {
 func sov(x uint64) (n int) {
 	return (bits.Len64(x|1) + 6) / 7
 }
-
 func soz(x uint64) (n int) {
 	return sov(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-
 func (m *Affiliate) UnmarshalVT(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -998,7 +998,6 @@ func (m *Affiliate) UnmarshalVT(dAtA []byte) error {
 	}
 	return nil
 }
-
 func (m *HelloRequest) UnmarshalVT(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1114,7 +1113,6 @@ func (m *HelloRequest) UnmarshalVT(dAtA []byte) error {
 	}
 	return nil
 }
-
 func (m *RedirectMessage) UnmarshalVT(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1198,7 +1196,6 @@ func (m *RedirectMessage) UnmarshalVT(dAtA []byte) error {
 	}
 	return nil
 }
-
 func (m *HelloResponse) UnmarshalVT(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1320,7 +1317,6 @@ func (m *HelloResponse) UnmarshalVT(dAtA []byte) error {
 	}
 	return nil
 }
-
 func (m *AffiliateUpdateRequest) UnmarshalVT(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1546,7 +1542,6 @@ func (m *AffiliateUpdateRequest) UnmarshalVT(dAtA []byte) error {
 	}
 	return nil
 }
-
 func (m *AffiliateUpdateResponse) UnmarshalVT(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1598,7 +1593,6 @@ func (m *AffiliateUpdateResponse) UnmarshalVT(dAtA []byte) error {
 	}
 	return nil
 }
-
 func (m *AffiliateDeleteRequest) UnmarshalVT(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1714,7 +1708,6 @@ func (m *AffiliateDeleteRequest) UnmarshalVT(dAtA []byte) error {
 	}
 	return nil
 }
-
 func (m *AffiliateDeleteResponse) UnmarshalVT(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1766,7 +1759,6 @@ func (m *AffiliateDeleteResponse) UnmarshalVT(dAtA []byte) error {
 	}
 	return nil
 }
-
 func (m *ListRequest) UnmarshalVT(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1850,7 +1842,6 @@ func (m *ListRequest) UnmarshalVT(dAtA []byte) error {
 	}
 	return nil
 }
-
 func (m *ListResponse) UnmarshalVT(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1936,7 +1927,6 @@ func (m *ListResponse) UnmarshalVT(dAtA []byte) error {
 	}
 	return nil
 }
-
 func (m *WatchRequest) UnmarshalVT(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -2020,7 +2010,6 @@ func (m *WatchRequest) UnmarshalVT(dAtA []byte) error {
 	}
 	return nil
 }
-
 func (m *WatchResponse) UnmarshalVT(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -2052,7 +2041,7 @@ func (m *WatchResponse) UnmarshalVT(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Affiliate", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Affiliates", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -2079,10 +2068,8 @@ func (m *WatchResponse) UnmarshalVT(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Affiliate == nil {
-				m.Affiliate = &Affiliate{}
-			}
-			if err := m.Affiliate.UnmarshalVT(dAtA[iNdEx:postIndex]); err != nil {
+			m.Affiliates = append(m.Affiliates, &Affiliate{})
+			if err := m.Affiliates[len(m.Affiliates)-1].UnmarshalVT(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -2128,7 +2115,6 @@ func (m *WatchResponse) UnmarshalVT(dAtA []byte) error {
 	}
 	return nil
 }
-
 func skip(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0

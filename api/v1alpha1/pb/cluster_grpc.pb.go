@@ -4,7 +4,6 @@ package pb
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -30,6 +29,9 @@ type ClusterClient interface {
 	// List affiliates in the cluster.
 	List(ctx context.Context, in *ListRequest, opts ...grpc.CallOption) (*ListResponse, error)
 	// Watch affiliate updates in the cluster.
+	//
+	// The first WatchResponse contains the snapshot of the current affiliate state (even if empty).
+	// Subsequent response messages are sent as the affiliates get changed.
 	Watch(ctx context.Context, in *WatchRequest, opts ...grpc.CallOption) (Cluster_WatchClient, error)
 }
 
@@ -124,6 +126,9 @@ type ClusterServer interface {
 	// List affiliates in the cluster.
 	List(context.Context, *ListRequest) (*ListResponse, error)
 	// Watch affiliate updates in the cluster.
+	//
+	// The first WatchResponse contains the snapshot of the current affiliate state (even if empty).
+	// Subsequent response messages are sent as the affiliates get changed.
 	Watch(*WatchRequest, Cluster_WatchServer) error
 	mustEmbedUnimplementedClusterServer()
 }
@@ -135,19 +140,15 @@ type UnimplementedClusterServer struct {
 func (UnimplementedClusterServer) Hello(context.Context, *HelloRequest) (*HelloResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Hello not implemented")
 }
-
 func (UnimplementedClusterServer) AffiliateUpdate(context.Context, *AffiliateUpdateRequest) (*AffiliateUpdateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AffiliateUpdate not implemented")
 }
-
 func (UnimplementedClusterServer) AffiliateDelete(context.Context, *AffiliateDeleteRequest) (*AffiliateDeleteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AffiliateDelete not implemented")
 }
-
 func (UnimplementedClusterServer) List(context.Context, *ListRequest) (*ListResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method List not implemented")
 }
-
 func (UnimplementedClusterServer) Watch(*WatchRequest, Cluster_WatchServer) error {
 	return status.Errorf(codes.Unimplemented, "method Watch not implemented")
 }

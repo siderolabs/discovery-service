@@ -7,6 +7,8 @@ package state
 import (
 	"sync"
 	"time"
+
+	"github.com/talos-systems/discovery-service/pkg/limits"
 )
 
 // Cluster is a collection of affiliates.
@@ -32,14 +34,14 @@ func NewCluster(id string) *Cluster {
 // WithAffiliate runs a function against the affiliate.
 //
 // Cluster state is locked while the function is running.
-func (cluster *Cluster) WithAffiliate(id string, f func(affiliate *Affiliate)) {
+func (cluster *Cluster) WithAffiliate(id string, f func(affiliate *Affiliate) error) error {
 	cluster.affiliatesMu.Lock()
 	defer cluster.affiliatesMu.Unlock()
 
 	if affiliate, ok := cluster.affiliates[id]; ok {
 		affiliate.ClearChanged()
 
-		f(affiliate)
+		err := f(affiliate)
 
 		if affiliate.IsChanged() {
 			cluster.notify(&Notification{
@@ -48,17 +50,23 @@ func (cluster *Cluster) WithAffiliate(id string, f func(affiliate *Affiliate)) {
 			})
 		}
 
-		return
+		return err
+	}
+
+	if len(cluster.affiliates) >= limits.ClusterAffiliatesMax {
+		return ErrTooManyAffiliates
 	}
 
 	affiliate := NewAffiliate(id)
-	f(affiliate)
+	err := f(affiliate)
 
 	cluster.affiliates[id] = affiliate
 	cluster.notify(&Notification{
 		AffiliateID: id,
 		Affiliate:   affiliate.Export(),
 	})
+
+	return err
 }
 
 // DeleteAffiliate deletes affiliate from the cluster.

@@ -11,4 +11,4 @@ spec:
 ---
 kind: service.CodeCov
 spec:
-  targetThreshold: 15
+  targetThreshold: 30

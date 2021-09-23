@@ -7,6 +7,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net"
 	"time"
 
@@ -71,15 +72,36 @@ func (srv *ClusterServer) AffiliateUpdate(ctx context.Context, req *pb.Affiliate
 		return nil, err
 	}
 
-	srv.state.GetCluster(req.ClusterId).WithAffiliate(req.AffiliateId, func(affiliate *state.Affiliate) {
+	if err := validateAffiliateData(req.AffiliateData); err != nil {
+		return nil, err
+	}
+
+	if err := validateAffiliateEndpoints(req.AffiliateEndpoints); err != nil {
+		return nil, err
+	}
+
+	if err := validateTTL(req.Ttl.AsDuration()); err != nil {
+		return nil, err
+	}
+
+	if err := srv.state.GetCluster(req.ClusterId).WithAffiliate(req.AffiliateId, func(affiliate *state.Affiliate) error {
 		expiration := time.Now().Add(req.Ttl.AsDuration())
 
 		if len(req.AffiliateData) > 0 {
 			affiliate.Update(req.AffiliateData, expiration)
 		}
 
-		affiliate.MergeEndpoints(req.AffiliateEndpoints, expiration)
-	})
+		return affiliate.MergeEndpoints(req.AffiliateEndpoints, expiration)
+	}); err != nil {
+		switch {
+		case errors.Is(err, state.ErrTooManyEndpoints):
+			return nil, status.Error(codes.ResourceExhausted, err.Error())
+		case errors.Is(err, state.ErrTooManyAffiliates):
+			return nil, status.Error(codes.ResourceExhausted, err.Error())
+		default:
+			return nil, err
+		}
+	}
 
 	return &pb.AffiliateUpdateResponse{}, nil
 }
@@ -133,20 +155,23 @@ func (srv *ClusterServer) Watch(req *pb.WatchRequest, server pb.Cluster_WatchSer
 	snapshot, subscription := srv.state.GetCluster(req.ClusterId).Subscribe(updates)
 	defer subscription.Close()
 
+	snapshotResp := &pb.WatchResponse{}
+
 	for _, affiliate := range snapshot {
-		if err := server.Send(&pb.WatchResponse{
-			Affiliate: &pb.Affiliate{
+		snapshotResp.Affiliates = append(snapshotResp.Affiliates,
+			&pb.Affiliate{
 				Id:        affiliate.ID,
 				Data:      affiliate.Data,
 				Endpoints: affiliate.Endpoints,
-			},
-		}); err != nil {
-			if status.Code(err) == codes.Canceled {
-				return nil
-			}
+			})
+	}
 
-			return err
+	if err := server.Send(snapshotResp); err != nil {
+		if status.Code(err) == codes.Canceled {
+			return nil
 		}
+
+		return err
 	}
 
 	for {
@@ -160,14 +185,18 @@ func (srv *ClusterServer) Watch(req *pb.WatchRequest, server pb.Cluster_WatchSer
 
 			if notification.Affiliate == nil {
 				resp.Deleted = true
-				resp.Affiliate = &pb.Affiliate{
-					Id: notification.AffiliateID,
+				resp.Affiliates = []*pb.Affiliate{
+					{
+						Id: notification.AffiliateID,
+					},
 				}
 			} else {
-				resp.Affiliate = &pb.Affiliate{
-					Id:        notification.Affiliate.ID,
-					Data:      notification.Affiliate.Data,
-					Endpoints: notification.Affiliate.Endpoints,
+				resp.Affiliates = []*pb.Affiliate{
+					{
+						Id:        notification.Affiliate.ID,
+						Data:      notification.Affiliate.Data,
+						Endpoints: notification.Affiliate.Endpoints,
+					},
 				}
 			}
 

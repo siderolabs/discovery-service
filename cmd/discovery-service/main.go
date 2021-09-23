@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/talos-systems/discovery-service/api/v1alpha1/pb"
+	_ "github.com/talos-systems/discovery-service/internal/proto"
 	"github.com/talos-systems/discovery-service/internal/state"
 	"github.com/talos-systems/discovery-service/pkg/server"
 )

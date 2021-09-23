@@ -5,13 +5,12 @@
 package server
 
 import (
+	"time"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-)
 
-const (
-	clusterIDMax   = 256
-	affiliateIDMax = 256
+	"github.com/talos-systems/discovery-service/pkg/limits"
 )
 
 func validateClusterID(id string) error {
@@ -19,7 +18,7 @@ func validateClusterID(id string) error {
 		return status.Errorf(codes.InvalidArgument, "cluster ID can't be empty")
 	}
 
-	if len(id) > clusterIDMax {
+	if len(id) > limits.ClusterIDMax {
 		return status.Errorf(codes.InvalidArgument, "cluster ID is too long")
 	}
 
@@ -31,8 +30,34 @@ func validateAffiliateID(id string) error {
 		return status.Errorf(codes.InvalidArgument, "affiliate ID can't be empty")
 	}
 
-	if len(id) > affiliateIDMax {
+	if len(id) > limits.AffiliateIDMax {
 		return status.Errorf(codes.InvalidArgument, "affiliate ID is too long")
+	}
+
+	return nil
+}
+
+func validateAffiliateData(data []byte) error {
+	if len(data) > limits.AffiliateDataMax {
+		return status.Error(codes.InvalidArgument, "affiliate data is too big")
+	}
+
+	return nil
+}
+
+func validateAffiliateEndpoints(endpoints [][]byte) error {
+	for _, endpoint := range endpoints {
+		if len(endpoint) > limits.AffiliateEndpointMax {
+			return status.Errorf(codes.InvalidArgument, "affiliate endpoint is too big")
+		}
+	}
+
+	return nil
+}
+
+func validateTTL(ttl time.Duration) error {
+	if ttl > limits.TTLMax {
+		return status.Errorf(codes.InvalidArgument, "ttl is too large")
 	}
 
 	return nil

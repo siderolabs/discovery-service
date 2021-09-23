@@ -5,13 +5,16 @@
 package state_test
 
 import (
+	"fmt"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/talos-systems/discovery-service/internal/state"
+	"github.com/talos-systems/discovery-service/pkg/limits"
 )
 
 func TestClusterMutations(t *testing.T) {
@@ -24,9 +27,11 @@ func TestClusterMutations(t *testing.T) {
 
 	assert.Len(t, cluster.List(), 0)
 
-	cluster.WithAffiliate("af1", func(affiliate *state.Affiliate) {
+	assert.NoError(t, cluster.WithAffiliate("af1", func(affiliate *state.Affiliate) error {
 		affiliate.Update([]byte("data"), now.Add(time.Minute))
-	})
+
+		return nil
+	}))
 
 	assert.Len(t, cluster.List(), 1)
 
@@ -37,9 +42,11 @@ func TestClusterMutations(t *testing.T) {
 
 	assert.Len(t, snapshot, 1)
 
-	cluster.WithAffiliate("af1", func(affiliate *state.Affiliate) {
+	assert.NoError(t, cluster.WithAffiliate("af1", func(affiliate *state.Affiliate) error {
 		affiliate.Update([]byte("data1"), now.Add(time.Minute))
-	})
+
+		return nil
+	}))
 
 	assert.Len(t, cluster.List(), 1)
 	assert.Equal(t, []*state.AffiliateExport{
@@ -62,9 +69,11 @@ func TestClusterMutations(t *testing.T) {
 		assert.Fail(t, "no notification")
 	}
 
-	cluster.WithAffiliate("af2", func(affiliate *state.Affiliate) {
+	assert.NoError(t, cluster.WithAffiliate("af2", func(affiliate *state.Affiliate) error {
 		affiliate.Update([]byte("data2"), now.Add(time.Minute))
-	})
+
+		return nil
+	}))
 
 	assert.Len(t, cluster.List(), 2)
 
@@ -166,17 +175,23 @@ func TestClusterSubscriptions(t *testing.T) {
 		assert.Empty(t, snapshot)
 	}
 
-	cluster.WithAffiliate("af1", func(affiliate *state.Affiliate) {
+	assert.NoError(t, cluster.WithAffiliate("af1", func(affiliate *state.Affiliate) error {
 		affiliate.Update([]byte("data1"), now.Add(time.Minute))
-	})
 
-	cluster.WithAffiliate("af2", func(affiliate *state.Affiliate) {
+		return nil
+	}))
+
+	assert.NoError(t, cluster.WithAffiliate("af2", func(affiliate *state.Affiliate) error {
 		affiliate.Update([]byte("data2"), now.Add(time.Minute))
-	})
 
-	cluster.WithAffiliate("af2", func(affiliate *state.Affiliate) {
+		return nil
+	}))
+
+	assert.NoError(t, cluster.WithAffiliate("af2", func(affiliate *state.Affiliate) error {
 		affiliate.Update([]byte("data2_1"), now.Add(time.Minute))
-	})
+
+		return nil
+	}))
 
 	cluster.DeleteAffiliate("af2")
 
@@ -240,4 +255,22 @@ func TestClusterSubscriptions(t *testing.T) {
 			AffiliateID: "af2",
 		})
 	}
+}
+
+func TestClusterTooManyAffiliates(t *testing.T) {
+	t.Parallel()
+
+	cluster := state.NewCluster("cluster3")
+
+	for i := 0; i < limits.ClusterAffiliatesMax; i++ {
+		assert.NoError(t, cluster.WithAffiliate(fmt.Sprintf("af%d", i), func(affiliate *state.Affiliate) error {
+			return nil
+		}))
+	}
+
+	err := cluster.WithAffiliate("af", func(affiliate *state.Affiliate) error {
+		return nil
+	})
+	require.Error(t, err)
+	require.ErrorIs(t, err, state.ErrTooManyAffiliates)
 }

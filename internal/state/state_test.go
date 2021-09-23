@@ -22,9 +22,11 @@ func TestState(t *testing.T) {
 	assert.Equal(t, 0, deletedClusters)
 
 	st.GetCluster("id1")
-	st.GetCluster("id2").WithAffiliate("af1", func(affiliate *state.Affiliate) {
+	assert.NoError(t, st.GetCluster("id2").WithAffiliate("af1", func(affiliate *state.Affiliate) error {
 		affiliate.Update([]byte("data1"), now.Add(time.Minute))
-	})
+
+		return nil
+	}))
 
 	deletedClusters = st.GarbageCollect(now)
 	assert.Equal(t, 1, deletedClusters)

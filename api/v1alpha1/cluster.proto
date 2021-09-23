@@ -18,6 +18,9 @@ service Cluster {
     // List affiliates in the cluster.
     rpc List(ListRequest) returns (ListResponse);
     // Watch affiliate updates in the cluster.
+    //
+    // The first WatchResponse contains the snapshot of the current affiliate state (even if empty).
+    // Subsequent response messages are sent as the affiliates get changed.
     rpc Watch(WatchRequest) returns (stream WatchResponse);
 }
 
@@ -108,7 +111,7 @@ message WatchRequest {
 
 message WatchResponse {
     // List of cluster affiliates.
-    Affiliate affiliate = 1;
+    repeated Affiliate affiliates = 1;
     // Flag that affiliate was deleted, only ID field is valid.
     bool deleted = 2;
 }

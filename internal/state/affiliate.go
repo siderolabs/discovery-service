@@ -7,6 +7,8 @@ package state
 import (
 	"bytes"
 	"time"
+
+	"github.com/talos-systems/discovery-service/pkg/limits"
 )
 
 // Affiliate represents cluster affiliate state.
@@ -50,7 +52,7 @@ func (affiliate *Affiliate) Update(data []byte, expiration time.Time) {
 }
 
 // MergeEndpoints and potentially update expiration for endpoints.
-func (affiliate *Affiliate) MergeEndpoints(endpoints [][]byte, expiration time.Time) {
+func (affiliate *Affiliate) MergeEndpoints(endpoints [][]byte, expiration time.Time) error {
 	for _, endpoint := range endpoints {
 		found := false
 
@@ -67,6 +69,10 @@ func (affiliate *Affiliate) MergeEndpoints(endpoints [][]byte, expiration time.T
 		}
 
 		if !found {
+			if len(affiliate.endpoints) >= limits.AffiliateEndpointsMax {
+				return ErrTooManyEndpoints
+			}
+
 			affiliate.endpoints = append(affiliate.endpoints, Endpoint{
 				expiration: expiration,
 				data:       endpoint,
@@ -79,6 +85,8 @@ func (affiliate *Affiliate) MergeEndpoints(endpoints [][]byte, expiration time.T
 	if affiliate.expiration.Before(expiration) {
 		affiliate.expiration = expiration
 	}
+
+	return nil
 }
 
 // GarbageCollect affiliate data.

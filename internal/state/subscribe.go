@@ -4,7 +4,9 @@
 
 package state
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Notification about affiliate update.
 //

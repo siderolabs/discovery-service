@@ -5,7 +5,9 @@
 package server_test
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"net"
 	"strings"
 	"testing"
@@ -20,7 +22,9 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/talos-systems/discovery-service/api/v1alpha1/pb"
+	_ "github.com/talos-systems/discovery-service/internal/proto"
 	"github.com/talos-systems/discovery-service/internal/state"
+	"github.com/talos-systems/discovery-service/pkg/limits"
 	"github.com/talos-systems/discovery-service/pkg/server"
 )
 
@@ -47,8 +51,8 @@ func TestServerAPI(t *testing.T) {
 
 	addr := setupServer(t)
 
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
-	require.NoError(t, err)
+	conn, e := grpc.Dial(addr, grpc.WithInsecure())
+	require.NoError(t, e)
 
 	client := pb.NewClusterClient(conn)
 
@@ -174,10 +178,12 @@ func TestServerAPI(t *testing.T) {
 
 		assert.True(t, proto.Equal(&pb.WatchResponse{
 			Deleted: false,
-			Affiliate: &pb.Affiliate{
-				Id:        "af1",
-				Data:      []byte("data1"),
-				Endpoints: [][]byte{},
+			Affiliates: []*pb.Affiliate{
+				{
+					Id:        "af1",
+					Data:      []byte("data1"),
+					Endpoints: [][]byte{},
+				},
 			},
 		}, msg))
 
@@ -193,10 +199,12 @@ func TestServerAPI(t *testing.T) {
 
 		assert.True(t, proto.Equal(&pb.WatchResponse{
 			Deleted: false,
-			Affiliate: &pb.Affiliate{
-				Id:        "af2",
-				Data:      []byte("data2"),
-				Endpoints: [][]byte{},
+			Affiliates: []*pb.Affiliate{
+				{
+					Id:        "af2",
+					Data:      []byte("data2"),
+					Endpoints: [][]byte{},
+				},
 			},
 		}, msg))
 
@@ -211,8 +219,10 @@ func TestServerAPI(t *testing.T) {
 
 		assert.True(t, proto.Equal(&pb.WatchResponse{
 			Deleted: true,
-			Affiliate: &pb.Affiliate{
-				Id: "af1",
+			Affiliates: []*pb.Affiliate{
+				{
+					Id: "af1",
+				},
 			},
 		}, msg))
 	})
@@ -223,8 +233,8 @@ func TestValidation(t *testing.T) {
 
 	addr := setupServer(t)
 
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
-	require.NoError(t, err)
+	conn, e := grpc.Dial(addr, grpc.WithInsecure())
+	require.NoError(t, e)
 
 	client := pb.NewClusterClient(conn)
 
@@ -252,7 +262,7 @@ func TestValidation(t *testing.T) {
 		assert.Equal(t, codes.InvalidArgument, status.Code(err))
 
 		_, err = client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
-			ClusterId:   strings.Repeat("A", 1024),
+			ClusterId:   strings.Repeat("A", limits.ClusterIDMax+1),
 			AffiliateId: "fake",
 		})
 		require.Error(t, err)
@@ -260,10 +270,66 @@ func TestValidation(t *testing.T) {
 
 		_, err = client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
 			ClusterId:   "fake",
-			AffiliateId: strings.Repeat("A", 1024),
+			AffiliateId: strings.Repeat("A", limits.AffiliateIDMax+1),
 		})
 		require.Error(t, err)
 		assert.Equal(t, codes.InvalidArgument, status.Code(err))
+
+		_, err = client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
+			ClusterId:     "fake",
+			AffiliateId:   "fake",
+			AffiliateData: bytes.Repeat([]byte{0}, limits.AffiliateDataMax+1),
+		})
+		require.Error(t, err)
+		assert.Equal(t, codes.InvalidArgument, status.Code(err))
+
+		_, err = client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
+			ClusterId:          "fake",
+			AffiliateId:        "fake",
+			AffiliateEndpoints: [][]byte{bytes.Repeat([]byte{0}, limits.AffiliateEndpointMax+1)},
+		})
+		require.Error(t, err)
+		assert.Equal(t, codes.InvalidArgument, status.Code(err))
+	})
+
+	t.Run("AffiliateUpdateTooMany", func(t *testing.T) {
+		t.Parallel()
+
+		for i := 0; i < limits.ClusterAffiliatesMax; i++ {
+			_, err := client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
+				ClusterId:   "fatcluster",
+				AffiliateId: fmt.Sprintf("af%d", i),
+			})
+			require.NoError(t, err)
+		}
+
+		_, err := client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
+			ClusterId:   "fatcluster",
+			AffiliateId: "af",
+		})
+		require.Error(t, err)
+		assert.Equal(t, codes.ResourceExhausted, status.Code(err))
+	})
+
+	t.Run("AffiliateUpdateTooManyEndpoints", func(t *testing.T) {
+		t.Parallel()
+
+		for i := 0; i < limits.AffiliateEndpointsMax; i++ {
+			_, err := client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
+				ClusterId:          "smallcluster",
+				AffiliateId:        "af",
+				AffiliateEndpoints: [][]byte{[]byte(fmt.Sprintf("endpoint%d", i))},
+			})
+			require.NoError(t, err)
+		}
+
+		_, err := client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
+			ClusterId:          "smallcluster",
+			AffiliateId:        "af",
+			AffiliateEndpoints: [][]byte{[]byte("endpoin")},
+		})
+		require.Error(t, err)
+		assert.Equal(t, codes.ResourceExhausted, status.Code(err))
 	})
 
 	t.Run("AffiliateDelete", func(t *testing.T) {
