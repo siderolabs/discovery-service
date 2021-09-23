@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 	"inet.af/netaddr"
 
-	"github.com/talos-systems/discovery-service/api/v1alpha1/pb"
+	"github.com/talos-systems/discovery-service/api/v1alpha1/server/pb"
 	"github.com/talos-systems/discovery-service/internal/state"
 )
 
@@ -26,13 +26,22 @@ const updateBuffer = 32
 type ClusterServer struct {
 	pb.UnimplementedClusterServer
 
-	state *state.State
+	stopCh <-chan struct{}
+	state  *state.State
 }
 
 // NewClusterServer builds new ClusterServer.
-func NewClusterServer(state *state.State) *ClusterServer {
+func NewClusterServer(state *state.State, stopCh <-chan struct{}) *ClusterServer {
 	return &ClusterServer{
-		state: state,
+		state:  state,
+		stopCh: stopCh,
+	}
+}
+
+// NewTestClusterServer builds cluster server for testing code.
+func NewTestClusterServer() *ClusterServer {
+	return &ClusterServer{
+		state: state.NewState(),
 	}
 }
 
@@ -177,6 +186,8 @@ func (srv *ClusterServer) Watch(req *pb.WatchRequest, server pb.Cluster_WatchSer
 	for {
 		select {
 		case <-server.Context().Done():
+			return nil
+		case <-srv.stopCh:
 			return nil
 		case err := <-subscription.ErrCh():
 			return status.Errorf(codes.Aborted, "subscription canceled: %s", err)

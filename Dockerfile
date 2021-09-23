@@ -2,7 +2,7 @@
 
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2021-09-22T18:49:05Z by kres 2a27963-dirty.
+# Generated on 2021-09-23T16:56:44Z by kres 2a27963-dirty.
 
 ARG TOOLCHAIN
 
@@ -22,7 +22,8 @@ RUN markdownlint --ignore "CHANGELOG.md" --ignore "**/node_modules/**" --ignore 
 # collects proto specs
 FROM scratch AS proto-specs
 ADD https://raw.githubusercontent.com/protocolbuffers/protobuf/master/src/google/protobuf/duration.proto /api/vendor/google/
-ADD api/v1alpha1/cluster.proto /api/v1alpha1/pb/
+ADD api/v1alpha1/server/cluster.proto /api/v1alpha1/server/pb/
+ADD api/v1alpha1/client/affiliate.proto /api/v1alpha1/client/pb/
 
 # base toolchain image
 FROM ${TOOLCHAIN} AS toolchain
@@ -66,8 +67,10 @@ RUN --mount=type=cache,target=/go/pkg go list -mod=readonly all >/dev/null
 # runs protobuf compiler
 FROM tools AS proto-compile
 COPY --from=proto-specs / /
-RUN protoc -I/api --go_out=paths=source_relative:/api --go-grpc_out=paths=source_relative:/api --go-vtproto_out=paths=source_relative:/api --go-vtproto_opt=features=marshal+unmarshal+size /api/v1alpha1/pb/cluster.proto
-RUN rm /api/v1alpha1/pb/cluster.proto
+RUN protoc -I/api --go_out=paths=source_relative:/api --go-grpc_out=paths=source_relative:/api --go-vtproto_out=paths=source_relative:/api --go-vtproto_opt=features=marshal+unmarshal+size /api/v1alpha1/server/pb/cluster.proto
+RUN protoc -I/api --go_out=paths=source_relative:/api --go-grpc_out=paths=source_relative:/api --go-vtproto_out=paths=source_relative:/api --go-vtproto_opt=features=marshal+unmarshal+size /api/v1alpha1/client/pb/affiliate.proto
+RUN rm /api/v1alpha1/server/pb/cluster.proto
+RUN rm /api/v1alpha1/client/pb/affiliate.proto
 
 # runs gofumpt
 FROM base AS lint-gofumpt

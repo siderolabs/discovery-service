@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package sidero.discovery.client;
+
+option go_package = "github.com/talos-systems/api/v1alpha1/client/pb";
+
+// Affiliate protobuf spec, as seen internally in the client code.
+//
+// Discovery service recieves Affiliate marshaled to protobuf and encrypted.
+message Affiliate {
+    string node_id = 1;
+    // IPs are encoded using binary marshaling.
+    repeated bytes addresses = 2;
+    string hostname = 3;
+    string nodename = 4;
+    string machine_type = 5;
+    string operating_system = 6;
+    optional KubeSpan kubespan = 7;
+}
+
+// KubeSpan optional configuration.
+message KubeSpan {
+    string public_key = 1;
+    bytes address = 2;
+    repeated IPPrefix additional_addresses = 3;
+}
+
+// IPPrefix contains CIDR.
+message IPPrefix {
+    // IPs are encoded using binary marshaling.
+    bytes ip = 1;
+    uint32 bits = 2;
+}
+
+// Endpoint for the Affiliate KubeSpan spec as seen internally in the client code.
+//
+// Discovery service receives Affiliate marshaled to protobuf and encrypted.
+message Endpoint {
+    // IPs are encoded using binary marshaling.
+    bytes ip = 1;
+    uint32 port = 2;
+}

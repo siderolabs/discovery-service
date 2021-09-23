@@ -3,6 +3,7 @@ module github.com/talos-systems/discovery-service
 go 1.17
 
 require (
+	github.com/cenkalti/backoff/v4 v4.1.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/prometheus/client_golang v1.11.0

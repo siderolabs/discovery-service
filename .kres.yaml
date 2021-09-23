@@ -6,8 +6,10 @@ spec:
     - source: https://raw.githubusercontent.com/protocolbuffers/protobuf/master/src/google/protobuf/duration.proto
       subdirectory: vendor/google
       skipCompile: true
-    - source: api/v1alpha1/cluster.proto
-      subdirectory: v1alpha1/pb
+    - source: api/v1alpha1/server/cluster.proto
+      subdirectory: v1alpha1/server/pb
+    - source: api/v1alpha1/client/affiliate.proto
+      subdirectory: v1alpha1/client/pb
 ---
 kind: service.CodeCov
 spec:

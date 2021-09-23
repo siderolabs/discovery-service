@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package sidero.discovery;
+package sidero.discovery.server;
 
-option go_package = "github.com/talos-systems/api/v1alpha1/pb";
+option go_package = "github.com/talos-systems/api/v1alpha1/server/pb";
 
 import "vendor/google/duration.proto";
 
@@ -45,8 +45,8 @@ message HelloRequest {
 }
 
 message RedirectMessage {
-    // URL of the service endpoint to connect to.
-    string endpoint_url = 1;
+    // gRPC URL of the service endpoint to connect to.
+    string endpoint = 1;
 }
 
 message HelloResponse {

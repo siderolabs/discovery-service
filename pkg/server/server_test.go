@@ -21,9 +21,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"github.com/talos-systems/discovery-service/api/v1alpha1/pb"
+	"github.com/talos-systems/discovery-service/api/v1alpha1/server/pb"
 	_ "github.com/talos-systems/discovery-service/internal/proto"
-	"github.com/talos-systems/discovery-service/internal/state"
 	"github.com/talos-systems/discovery-service/pkg/limits"
 	"github.com/talos-systems/discovery-service/pkg/server"
 )
@@ -35,7 +34,7 @@ func setupServer(t *testing.T) (address string) {
 	require.NoError(t, err)
 
 	s := grpc.NewServer()
-	pb.RegisterClusterServer(s, server.NewClusterServer(state.NewState()))
+	pb.RegisterClusterServer(s, server.NewTestClusterServer())
 
 	go func() {
 		require.NoError(t, s.Serve(lis))

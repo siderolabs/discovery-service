@@ -4,6 +4,7 @@ package pb
 
 import (
 	context "context"
+
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -45,7 +46,7 @@ func NewClusterClient(cc grpc.ClientConnInterface) ClusterClient {
 
 func (c *clusterClient) Hello(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloResponse, error) {
 	out := new(HelloResponse)
-	err := c.cc.Invoke(ctx, "/sidero.discovery.Cluster/Hello", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/sidero.discovery.server.Cluster/Hello", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +55,7 @@ func (c *clusterClient) Hello(ctx context.Context, in *HelloRequest, opts ...grp
 
 func (c *clusterClient) AffiliateUpdate(ctx context.Context, in *AffiliateUpdateRequest, opts ...grpc.CallOption) (*AffiliateUpdateResponse, error) {
 	out := new(AffiliateUpdateResponse)
-	err := c.cc.Invoke(ctx, "/sidero.discovery.Cluster/AffiliateUpdate", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/sidero.discovery.server.Cluster/AffiliateUpdate", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +64,7 @@ func (c *clusterClient) AffiliateUpdate(ctx context.Context, in *AffiliateUpdate
 
 func (c *clusterClient) AffiliateDelete(ctx context.Context, in *AffiliateDeleteRequest, opts ...grpc.CallOption) (*AffiliateDeleteResponse, error) {
 	out := new(AffiliateDeleteResponse)
-	err := c.cc.Invoke(ctx, "/sidero.discovery.Cluster/AffiliateDelete", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/sidero.discovery.server.Cluster/AffiliateDelete", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +73,7 @@ func (c *clusterClient) AffiliateDelete(ctx context.Context, in *AffiliateDelete
 
 func (c *clusterClient) List(ctx context.Context, in *ListRequest, opts ...grpc.CallOption) (*ListResponse, error) {
 	out := new(ListResponse)
-	err := c.cc.Invoke(ctx, "/sidero.discovery.Cluster/List", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/sidero.discovery.server.Cluster/List", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +81,7 @@ func (c *clusterClient) List(ctx context.Context, in *ListRequest, opts ...grpc.
 }
 
 func (c *clusterClient) Watch(ctx context.Context, in *WatchRequest, opts ...grpc.CallOption) (Cluster_WatchClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Cluster_ServiceDesc.Streams[0], "/sidero.discovery.Cluster/Watch", opts...)
+	stream, err := c.cc.NewStream(ctx, &Cluster_ServiceDesc.Streams[0], "/sidero.discovery.server.Cluster/Watch", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -140,15 +141,19 @@ type UnimplementedClusterServer struct {
 func (UnimplementedClusterServer) Hello(context.Context, *HelloRequest) (*HelloResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Hello not implemented")
 }
+
 func (UnimplementedClusterServer) AffiliateUpdate(context.Context, *AffiliateUpdateRequest) (*AffiliateUpdateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AffiliateUpdate not implemented")
 }
+
 func (UnimplementedClusterServer) AffiliateDelete(context.Context, *AffiliateDeleteRequest) (*AffiliateDeleteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AffiliateDelete not implemented")
 }
+
 func (UnimplementedClusterServer) List(context.Context, *ListRequest) (*ListResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method List not implemented")
 }
+
 func (UnimplementedClusterServer) Watch(*WatchRequest, Cluster_WatchServer) error {
 	return status.Errorf(codes.Unimplemented, "method Watch not implemented")
 }
@@ -175,7 +180,7 @@ func _Cluster_Hello_Handler(srv interface{}, ctx context.Context, dec func(inter
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/sidero.discovery.Cluster/Hello",
+		FullMethod: "/sidero.discovery.server.Cluster/Hello",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ClusterServer).Hello(ctx, req.(*HelloRequest))
@@ -193,7 +198,7 @@ func _Cluster_AffiliateUpdate_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/sidero.discovery.Cluster/AffiliateUpdate",
+		FullMethod: "/sidero.discovery.server.Cluster/AffiliateUpdate",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ClusterServer).AffiliateUpdate(ctx, req.(*AffiliateUpdateRequest))
@@ -211,7 +216,7 @@ func _Cluster_AffiliateDelete_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/sidero.discovery.Cluster/AffiliateDelete",
+		FullMethod: "/sidero.discovery.server.Cluster/AffiliateDelete",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ClusterServer).AffiliateDelete(ctx, req.(*AffiliateDeleteRequest))
@@ -229,7 +234,7 @@ func _Cluster_List_Handler(srv interface{}, ctx context.Context, dec func(interf
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/sidero.discovery.Cluster/List",
+		FullMethod: "/sidero.discovery.server.Cluster/List",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ClusterServer).List(ctx, req.(*ListRequest))
@@ -262,7 +267,7 @@ func (x *clusterWatchServer) Send(m *WatchResponse) error {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Cluster_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "sidero.discovery.Cluster",
+	ServiceName: "sidero.discovery.server.Cluster",
 	HandlerType: (*ClusterServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -289,5 +294,5 @@ var Cluster_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "v1alpha1/pb/cluster.proto",
+	Metadata: "v1alpha1/server/pb/cluster.proto",
 }

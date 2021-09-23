@@ -29,7 +29,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/talos-systems/discovery-service/api/v1alpha1/pb"
+	"github.com/talos-systems/discovery-service/api/v1alpha1/server/pb"
 	_ "github.com/talos-systems/discovery-service/internal/proto"
 	"github.com/talos-systems/discovery-service/internal/state"
 	"github.com/talos-systems/discovery-service/pkg/server"
@@ -109,13 +109,13 @@ func run(ctx context.Context, logger *zap.Logger) error {
 
 	serverOptions := []grpc.ServerOption{
 		grpc_middleware.WithUnaryServerChain(
-			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
+			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
 			grpc_zap.UnaryServerInterceptor(logger),
 			grpc_prometheus.UnaryServerInterceptor,
 			grpc_recovery.UnaryServerInterceptor(recoveryOpt),
 		),
 		grpc_middleware.WithStreamServerChain(
-			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
+			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
 			grpc_zap.StreamServerInterceptor(logger),
 			grpc_prometheus.StreamServerInterceptor,
 			grpc_recovery.StreamServerInterceptor(recoveryOpt),
@@ -130,7 +130,7 @@ func run(ctx context.Context, logger *zap.Logger) error {
 	}
 
 	s := grpc.NewServer(serverOptions...)
-	pb.RegisterClusterServer(s, server.NewClusterServer(state))
+	pb.RegisterClusterServer(s, server.NewClusterServer(state, ctx.Done()))
 	grpc_prometheus.Register(s)
 
 	var metricsMux http.ServeMux
