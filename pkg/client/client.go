@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"sync"
@@ -19,6 +20,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -244,6 +246,8 @@ func (client *Client) Run(ctx context.Context, logger *zap.Logger, notifyCh chan
 
 			if client.options.Insecure {
 				opts = append(opts, grpc.WithInsecure())
+			} else {
+				opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 			}
 
 			discoveryConn, err = grpc.DialContext(ctx, client.options.Endpoint, opts...)
