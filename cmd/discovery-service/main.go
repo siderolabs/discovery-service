@@ -24,6 +24,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/talos-systems/go-debug"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -39,15 +40,20 @@ import (
 var (
 	listenAddr  = ":3000"
 	metricsAddr = ":2122"
-	devMode     bool
-	gcInterval  time.Duration
+	debugAddr   = ":2123"
+	devMode     = false
+	gcInterval  = time.Minute
 )
 
 func init() {
-	flag.StringVar(&listenAddr, "addr", ":3000", "addr on which to listen")
-	flag.StringVar(&metricsAddr, "metrics-addr", ":2122", "prometheus metrics listen addr")
-	flag.BoolVar(&devMode, "debug", false, "enable debug mode")
-	flag.DurationVar(&gcInterval, "gc-interval", time.Minute, "garbage collection interval")
+	flag.StringVar(&listenAddr, "addr", listenAddr, "addr on which to listen")
+	flag.StringVar(&metricsAddr, "metrics-addr", metricsAddr, "prometheus metrics listen addr")
+	flag.BoolVar(&devMode, "debug", devMode, "enable debug mode")
+	flag.DurationVar(&gcInterval, "gc-interval", gcInterval, "garbage collection interval")
+
+	if debug.Enabled {
+		flag.StringVar(&debugAddr, "debug-addr", debugAddr, "debug (pprof, trace, expvar) listen addr")
+	}
 }
 
 func main() {
@@ -192,6 +198,10 @@ func run(ctx context.Context, logger *zap.Logger) error {
 		state.RunGC(ctx, logger, gcInterval)
 
 		return nil
+	})
+
+	eg.Go(func() error {
+		return debug.ListenAndServe(ctx, debugAddr, func(msg string) { logger.Info(msg) })
 	})
 
 	return eg.Wait()
