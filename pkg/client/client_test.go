@@ -305,6 +305,7 @@ func clusterSimulator(t *testing.T, endpoint string, logger *zap.Logger, numAffi
 			},
 			Endpoints: []*clientpb.Endpoint{
 				{
+					Ip:   make([]byte, 4), // IPv4
 					Port: uint32((i + 1) * 10),
 				},
 			},
@@ -313,6 +314,7 @@ func clusterSimulator(t *testing.T, endpoint string, logger *zap.Logger, numAffi
 				AffiliateID: fmt.Sprintf("affiliate-%d", (i+1)%numAffiliates),
 				Endpoints: []*clientpb.Endpoint{
 					{
+						Ip:   make([]byte, 16), // IPv6
 						Port: uint32(((i+1)%numAffiliates + 1) * 100),
 					},
 				},

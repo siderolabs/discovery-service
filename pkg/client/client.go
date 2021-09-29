@@ -124,17 +124,17 @@ func encryptEndpoints(cipher cipher.Block, endpoints []*clientpb.Endpoint) ([][]
 			return nil, fmt.Errorf("error marshaling endpoint: %w", err)
 		}
 
-		if len(data) > cipher.BlockSize()-1 {
-			return nil, fmt.Errorf("endpoint is too big: %d", len(data))
-		}
-
 		data = append([]byte{byte(len(data))}, data...)
 
 		// pad to cipher block size
-		data = append(data, bytes.Repeat([]byte{0}, cipher.BlockSize()-len(data))...)
+		if len(data)%cipher.BlockSize() != 0 {
+			data = append(data, bytes.Repeat([]byte{0}, cipher.BlockSize()-len(data)%cipher.BlockSize())...)
+		}
 
 		// using ECB encryption to make sure endpoints can be deduplicated server-side
-		cipher.Encrypt(data, data)
+		for i := 0; i < len(data); i += cipher.BlockSize() {
+			cipher.Encrypt(data[i:i+cipher.BlockSize()], data[i:i+cipher.BlockSize()])
+		}
 
 		result = append(result, data)
 	}
@@ -394,13 +394,15 @@ func (client *Client) parseReply(logger *zap.Logger, reply watchReply) {
 		}
 
 		for _, endpoint := range affiliate.Endpoints {
-			if len(endpoint) != client.options.Cipher.BlockSize() {
-				logger.Error("endpoint size is not cipher block size", zap.String("affiliate_id", affiliate.Id))
+			if len(endpoint)%client.options.Cipher.BlockSize() != 0 {
+				logger.Error("endpoint size is not multiple of cipher block size", zap.String("affiliate_id", affiliate.Id))
 
 				continue
 			}
 
-			client.options.Cipher.Decrypt(endpoint, endpoint)
+			for i := 0; i < len(endpoint); i += client.options.Cipher.BlockSize() {
+				client.options.Cipher.Decrypt(endpoint[i:i+client.options.Cipher.BlockSize()], endpoint[i:i+client.options.Cipher.BlockSize()])
+			}
 
 			var size byte
 
