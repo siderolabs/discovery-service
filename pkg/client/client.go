@@ -275,6 +275,9 @@ func (client *Client) Run(ctx context.Context, logger *zap.Logger, notifyCh chan
 			newEndpoint, err := client.sendHello(ctx, discoveryClient)
 			if err != nil {
 				logger.Error("hello failed", zap.Error(err), zap.String("endpoint", client.options.Endpoint))
+
+				// retry hello request until it succeeds
+				continue
 			}
 
 			if newEndpoint != "" {
