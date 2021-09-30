@@ -15,10 +15,9 @@ import (
 //
 // Cluster is gc'ed as all its affiliates are gone.
 type Cluster struct {
-	affiliates    map[string]*Affiliate
-	id            string
-	subscriptions []*Subscription
-
+	id              string
+	affiliates      map[string]*Affiliate
+	subscriptions   []*Subscription
 	affiliatesMu    sync.Mutex
 	subscriptionsMu sync.Mutex
 }
@@ -141,7 +140,7 @@ func (cluster *Cluster) unsubscribe(subscription *Subscription) {
 }
 
 // GarbageCollect the cluster.
-func (cluster *Cluster) GarbageCollect(now time.Time) (empty bool) {
+func (cluster *Cluster) GarbageCollect(now time.Time) (removedAffiliates int, empty bool) {
 	cluster.affiliatesMu.Lock()
 	defer cluster.affiliatesMu.Unlock()
 
@@ -150,6 +149,7 @@ func (cluster *Cluster) GarbageCollect(now time.Time) (empty bool) {
 
 		if remove {
 			delete(cluster.affiliates, id)
+			removedAffiliates++
 		}
 
 		if changed {
@@ -159,7 +159,9 @@ func (cluster *Cluster) GarbageCollect(now time.Time) (empty bool) {
 		}
 	}
 
-	return len(cluster.affiliates) == 0
+	empty = len(cluster.affiliates) == 0
+
+	return
 }
 
 func (cluster *Cluster) notify(notifications ...*Notification) {
@@ -172,4 +174,23 @@ func (cluster *Cluster) notify(notifications ...*Notification) {
 			subscription.notify(notification)
 		}
 	}
+}
+
+func (cluster *Cluster) stats() (affiliates, endpoints, subscriptions int) {
+	cluster.affiliatesMu.Lock()
+
+	affiliates = len(cluster.affiliates)
+	for _, affiliate := range cluster.affiliates {
+		endpoints += len(affiliate.endpoints)
+	}
+
+	cluster.affiliatesMu.Unlock()
+
+	cluster.subscriptionsMu.Lock()
+
+	subscriptions = len(cluster.subscriptions)
+
+	cluster.subscriptionsMu.Unlock()
+
+	return
 }

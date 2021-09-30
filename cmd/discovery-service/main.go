@@ -22,6 +22,7 @@ import (
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -123,6 +124,10 @@ func run(ctx context.Context, logger *zap.Logger) error {
 	}
 
 	state := state.NewState()
+	prom.MustRegister(state)
+
+	srv := server.NewClusterServer(state, ctx.Done())
+	prom.MustRegister(srv)
 
 	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
@@ -130,7 +135,11 @@ func run(ctx context.Context, logger *zap.Logger) error {
 	}
 
 	s := grpc.NewServer(serverOptions...)
-	pb.RegisterClusterServer(s, server.NewClusterServer(state, ctx.Done()))
+	pb.RegisterClusterServer(s, srv)
+
+	// TODO(aleksi): tweak buckets once we know the actual distribution
+	buckets := []float64{0.01, 0.1, 0.25, 0.5, 1.0, 2.5}
+	grpc_prometheus.EnableHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets(buckets))
 	grpc_prometheus.Register(s)
 
 	var metricsMux http.ServeMux

@@ -11,6 +11,7 @@ import (
 	"net"
 	"time"
 
+	prom "github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -26,28 +27,42 @@ const updateBuffer = 32
 type ClusterServer struct {
 	pb.UnimplementedClusterServer
 
-	stopCh <-chan struct{}
 	state  *state.State
+	stopCh <-chan struct{}
+
+	mHello *prom.CounterVec
 }
 
 // NewClusterServer builds new ClusterServer.
 func NewClusterServer(state *state.State, stopCh <-chan struct{}) *ClusterServer {
-	return &ClusterServer{
+	srv := &ClusterServer{
 		state:  state,
 		stopCh: stopCh,
+		mHello: prom.NewCounterVec(prom.CounterOpts{
+			Name: "discovery_server_hello_requests_total",
+			Help: "Number of hello requests by client version.",
+		}, []string{"client_version"}),
 	}
+
+	// initialize vectors to set correct descriptors
+	srv.mHello.WithLabelValues("unknown")
+
+	return srv
 }
 
 // NewTestClusterServer builds cluster server for testing code.
 func NewTestClusterServer() *ClusterServer {
-	return &ClusterServer{
-		state: state.NewState(),
-	}
+	return NewClusterServer(state.NewState(), nil)
 }
 
 // Hello implements cluster API.
 func (srv *ClusterServer) Hello(ctx context.Context, req *pb.HelloRequest) (*pb.HelloResponse, error) {
-	metricVersionGauge.WithLabelValues(req.ClientVersion).Inc()
+	clientVersion := req.ClientVersion
+	if clientVersion == "" {
+		clientVersion = "unknown"
+	}
+
+	srv.mHello.WithLabelValues(clientVersion).Inc()
 
 	if err := validateClusterID(req.ClusterId); err != nil {
 		return nil, err
@@ -221,3 +236,18 @@ func (srv *ClusterServer) Watch(req *pb.WatchRequest, server pb.Cluster_WatchSer
 		}
 	}
 }
+
+// Describe implements prom.Collector interface.
+func (srv *ClusterServer) Describe(ch chan<- *prom.Desc) {
+	prom.DescribeByCollect(srv, ch)
+}
+
+// Collect implements prom.Collector interface.
+func (srv *ClusterServer) Collect(ch chan<- prom.Metric) {
+	srv.mHello.Collect(ch)
+}
+
+// Check interfaces.
+var (
+	_ prom.Collector = (*ClusterServer)(nil)
+)

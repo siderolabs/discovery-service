@@ -94,7 +94,10 @@ func (affiliate *Affiliate) MergeEndpoints(endpoints [][]byte, expiration time.T
 // Endpoints are removed independent of the affiliate data.
 func (affiliate *Affiliate) GarbageCollect(now time.Time) (remove, changed bool) {
 	if affiliate.expiration.Before(now) {
-		return true, true
+		remove = true
+		changed = true
+
+		return
 	}
 
 	n := 0
@@ -110,5 +113,5 @@ func (affiliate *Affiliate) GarbageCollect(now time.Time) (remove, changed bool)
 
 	affiliate.endpoints = affiliate.endpoints[:n]
 
-	return false, changed
+	return
 }

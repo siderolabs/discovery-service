@@ -22,8 +22,9 @@ func TestClusterMutations(t *testing.T) {
 
 	cluster := state.NewCluster("cluster1")
 
-	remove := cluster.GarbageCollect(now)
-	assert.True(t, remove)
+	removedAffiliates, empty := cluster.GarbageCollect(now)
+	assert.Zero(t, removedAffiliates)
+	assert.True(t, empty)
 
 	assert.Len(t, cluster.List(), 0)
 
@@ -123,10 +124,12 @@ func TestClusterMutations(t *testing.T) {
 		assert.Fail(t, "no notification")
 	}
 
-	empty := cluster.GarbageCollect(now)
+	removedAffiliates, empty = cluster.GarbageCollect(now)
+	assert.Zero(t, removedAffiliates)
 	assert.False(t, empty)
 
-	empty = cluster.GarbageCollect(now.Add(2 * time.Minute))
+	removedAffiliates, empty = cluster.GarbageCollect(now.Add(2 * time.Minute))
+	assert.Equal(t, 1, removedAffiliates)
 	assert.True(t, empty)
 
 	select {
