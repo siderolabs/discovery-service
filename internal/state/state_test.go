@@ -12,6 +12,7 @@ import (
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"github.com/talos-systems/discovery-service/internal/state"
 )
@@ -27,7 +28,7 @@ func checkMetrics(t *testing.T, c prom.Collector) {
 func TestState(t *testing.T) {
 	now := time.Now()
 
-	st := state.NewState()
+	st := state.NewState(zaptest.NewLogger(t))
 
 	// Check metrics before and after the test
 	// to ensure that collector does not switch from being unchecked to checked and invalid.

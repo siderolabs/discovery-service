@@ -17,6 +17,7 @@ import (
 // State keeps the discovery service state.
 type State struct { //nolint:govet
 	clusters sync.Map
+	logger   *zap.Logger
 
 	mClustersDesc      *prom.Desc
 	mAffiliatesDesc    *prom.Desc
@@ -28,8 +29,9 @@ type State struct { //nolint:govet
 }
 
 // NewState create new instance of State.
-func NewState() *State {
+func NewState(logger *zap.Logger) *State {
 	return &State{
+		logger: logger,
 		mClustersDesc: prom.NewDesc(
 			"discovery_state_clusters",
 			"The current number of clusters in the state.",
@@ -65,13 +67,16 @@ func NewState() *State {
 	}
 }
 
-// GetCluster returns (or creates) new cluster by ID.
+// GetCluster returns cluster by ID, creating it if needed.
 func (state *State) GetCluster(id string) *Cluster {
 	if v, ok := state.clusters.Load(id); ok {
 		return v.(*Cluster)
 	}
 
-	v, _ := state.clusters.LoadOrStore(id, NewCluster(id))
+	v, loaded := state.clusters.LoadOrStore(id, NewCluster(id))
+	if !loaded {
+		state.logger.Debug("cluster created", zap.String("cluster_id", id))
+	}
 
 	return v.(*Cluster)
 }
@@ -84,6 +89,7 @@ func (state *State) GarbageCollect(now time.Time) (removedClusters, removedAffil
 		removedAffiliates += ra
 		if empty {
 			state.clusters.Delete(key)
+			state.logger.Debug("cluster removed", zap.String("cluster_id", key.(string)))
 			removedClusters++
 		}
 
@@ -104,14 +110,22 @@ func (state *State) RunGC(ctx context.Context, logger *zap.Logger, interval time
 
 	for ctx.Err() == nil {
 		removedClusters, removedAffiliates := state.GarbageCollect(time.Now())
+		clusters, affiliates, endpoints, subscriptions := state.stats()
 
+		logFunc := logger.Debug
 		if removedClusters > 0 || removedAffiliates > 0 {
-			logger.Info(
-				"garbage collection run",
-				zap.Int("removed_clusters", removedClusters),
-				zap.Int("removed_affiliates", removedAffiliates),
-			)
+			logFunc = logger.Info
 		}
+
+		logFunc(
+			"garbage collection run",
+			zap.Int("removed_clusters", removedClusters),
+			zap.Int("removed_affiliates", removedAffiliates),
+			zap.Int("current_clusters", clusters),
+			zap.Int("current_affiliates", affiliates),
+			zap.Int("current_endpoints", endpoints),
+			zap.Int("current_subscriptions", subscriptions),
+		)
 
 		select {
 		case <-ctx.Done():
@@ -120,15 +134,7 @@ func (state *State) RunGC(ctx context.Context, logger *zap.Logger, interval time
 	}
 }
 
-// Describe implements prom.Collector interface.
-func (state *State) Describe(ch chan<- *prom.Desc) {
-	prom.DescribeByCollect(state, ch)
-}
-
-// Collect implements prom.Collector interface.
-func (state *State) Collect(ch chan<- prom.Metric) {
-	var clusters, affiliates, endpoints, subscriptions int
-
+func (state *State) stats() (clusters, affiliates, endpoints, subscriptions int) {
 	state.clusters.Range(func(key, value interface{}) bool {
 		clusters++
 
@@ -141,6 +147,18 @@ func (state *State) Collect(ch chan<- prom.Metric) {
 
 		return true
 	})
+
+	return
+}
+
+// Describe implements prom.Collector interface.
+func (state *State) Describe(ch chan<- *prom.Desc) {
+	prom.DescribeByCollect(state, ch)
+}
+
+// Collect implements prom.Collector interface.
+func (state *State) Collect(ch chan<- prom.Metric) {
+	clusters, affiliates, endpoints, subscriptions := state.stats()
 
 	ch <- prom.MustNewConstMetric(state.mClustersDesc, prom.GaugeValue, float64(clusters))
 	ch <- prom.MustNewConstMetric(state.mAffiliatesDesc, prom.GaugeValue, float64(affiliates))

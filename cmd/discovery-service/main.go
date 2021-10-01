@@ -70,6 +70,9 @@ func main() {
 		}
 	}
 
+	zap.ReplaceGlobals(logger)
+	zap.RedirectStdLog(logger)
+
 	if err = signalHandler(context.Background(), logger, run); err != nil {
 		logger.Error("service failed", zap.Error(err))
 
@@ -123,7 +126,7 @@ func run(ctx context.Context, logger *zap.Logger) error {
 		),
 	}
 
-	state := state.NewState()
+	state := state.NewState(logger)
 	prom.MustRegister(state)
 
 	srv := server.NewClusterServer(state, ctx.Done())

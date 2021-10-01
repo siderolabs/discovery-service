@@ -41,7 +41,7 @@ func setupServer(t *testing.T) (address string) {
 
 	logger := zaptest.NewLogger(t)
 
-	state := state.NewState()
+	state := state.NewState(logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)

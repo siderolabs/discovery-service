@@ -12,6 +12,7 @@ import (
 	"time"
 
 	prom "github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -51,8 +52,8 @@ func NewClusterServer(state *state.State, stopCh <-chan struct{}) *ClusterServer
 }
 
 // NewTestClusterServer builds cluster server for testing code.
-func NewTestClusterServer() *ClusterServer {
-	return NewClusterServer(state.NewState(), nil)
+func NewTestClusterServer(logger *zap.Logger) *ClusterServer {
+	return NewClusterServer(state.NewState(logger), nil)
 }
 
 // Hello implements cluster API.

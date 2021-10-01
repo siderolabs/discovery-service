@@ -17,6 +17,7 @@ import (
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -40,7 +41,7 @@ func checkMetrics(t *testing.T, c prom.Collector) {
 func setupServer(t *testing.T) (address string) {
 	t.Helper()
 
-	srv := server.NewTestClusterServer()
+	srv := server.NewTestClusterServer(zaptest.NewLogger(t))
 
 	// Check metrics before and after the test
 	// to ensure that collector does not switch from being unchecked to checked and invalid.
