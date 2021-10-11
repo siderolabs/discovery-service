@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/talos-systems/discovery-service/api/v1alpha1/server/pb"
+	"github.com/talos-systems/discovery-service/internal/landing"
 	_ "github.com/talos-systems/discovery-service/internal/proto"
 	"github.com/talos-systems/discovery-service/internal/state"
 	"github.com/talos-systems/discovery-service/pkg/server"
@@ -39,6 +40,7 @@ import (
 
 var (
 	listenAddr  = ":3000"
+	landingAddr = ":3001"
 	metricsAddr = ":2122"
 	debugAddr   = ":2123"
 	devMode     = false
@@ -47,6 +49,7 @@ var (
 
 func init() {
 	flag.StringVar(&listenAddr, "addr", listenAddr, "addr on which to listen")
+	flag.StringVar(&landingAddr, "landing-addr", landingAddr, "addr on which to listen for landing page")
 	flag.StringVar(&metricsAddr, "metrics-addr", metricsAddr, "prometheus metrics listen addr")
 	flag.BoolVar(&devMode, "debug", devMode, "enable debug mode")
 	flag.DurationVar(&gcInterval, "gc-interval", gcInterval, "garbage collection interval")
@@ -143,6 +146,11 @@ func run(ctx context.Context, logger *zap.Logger) error {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
 
+	landingLis, err := net.Listen("tcp", landingAddr)
+	if err != nil {
+		return fmt.Errorf("failed to listen: %w", err)
+	}
+
 	s := grpc.NewServer(serverOptions...)
 	pb.RegisterClusterServer(s, srv)
 
@@ -160,12 +168,26 @@ func run(ctx context.Context, logger *zap.Logger) error {
 		Handler: &metricsMux,
 	}
 
+	landingServer := http.Server{
+		Handler: landing.Handler(),
+	}
+
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
 		logger.Info("gRPC server starting", zap.Stringer("address", lis.Addr()))
 
 		if err := s.Serve(lis); err != nil {
+			return fmt.Errorf("failed to serve: %w", err)
+		}
+
+		return nil
+	})
+
+	eg.Go(func() error {
+		logger.Info("landing server starting", zap.Stringer("address", landingLis.Addr()))
+
+		if err := landingServer.Serve(landingLis); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("failed to serve: %w", err)
 		}
 
@@ -189,6 +211,7 @@ func run(ctx context.Context, logger *zap.Logger) error {
 		defer shutdownCancel()
 
 		s.GracefulStop()
+		landingServer.Shutdown(ctx)         //nolint:errcheck
 		metricsServer.Shutdown(shutdownCtx) //nolint:errcheck
 
 		return nil
