@@ -159,7 +159,11 @@ func (cluster *Cluster) GarbageCollect(now time.Time) (removedAffiliates int, em
 		}
 	}
 
-	empty = len(cluster.affiliates) == 0
+	cluster.subscriptionsMu.Lock()
+	subscriptions := len(cluster.subscriptions)
+	cluster.subscriptionsMu.Unlock()
+
+	empty = len(cluster.affiliates) == 0 && subscriptions == 0
 
 	return
 }

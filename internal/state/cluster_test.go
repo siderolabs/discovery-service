@@ -130,7 +130,7 @@ func TestClusterMutations(t *testing.T) {
 
 	removedAffiliates, empty = cluster.GarbageCollect(now.Add(2 * time.Minute))
 	assert.Equal(t, 1, removedAffiliates)
-	assert.True(t, empty)
+	assert.False(t, empty)
 
 	select {
 	case notification := <-updates:
@@ -145,6 +145,12 @@ func TestClusterMutations(t *testing.T) {
 		assert.NoError(t, err)
 	default:
 	}
+
+	subscription.Close()
+
+	removedAffiliates, empty = cluster.GarbageCollect(now.Add(2 * time.Minute))
+	assert.Equal(t, 0, removedAffiliates)
+	assert.True(t, empty)
 }
 
 func TestClusterSubscriptions(t *testing.T) {
