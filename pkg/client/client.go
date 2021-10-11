@@ -365,6 +365,13 @@ func (client *Client) parseReply(logger *zap.Logger, reply watchReply) {
 			continue
 		}
 
+		if reply.resp.Deleted {
+			// affiliate was deleted server-side
+			delete(client.discoveredAffiliates, affiliate.Id)
+
+			continue
+		}
+
 		if len(affiliate.Data) == 0 {
 			// no affiliate data (yet?), skip it
 			continue

@@ -62,7 +62,7 @@ func setupServer(t *testing.T) (address string) {
 	return lis.Addr().String()
 }
 
-//nolint:gocognit
+//nolint:gocognit,gocyclo,cyclop
 func TestClient(t *testing.T) {
 	t.Parallel()
 
@@ -223,6 +223,140 @@ func TestClient(t *testing.T) {
 		}
 
 		assert.Equal(t, []*client.Affiliate{affiliate1PB}, client2.GetAffiliates())
+
+		cancel()
+
+		err = eg.Wait()
+		if err != nil && !errors.Is(err, context.Canceled) {
+			assert.NoError(t, err)
+		}
+	})
+
+	t.Run("AffiliateExpire", func(t *testing.T) {
+		t.Parallel()
+
+		clusterID := "cluster_2"
+
+		key := make([]byte, 32)
+		_, err := io.ReadFull(rand.Reader, key)
+		require.NoError(t, err)
+
+		cipher, err := aes.NewCipher(key)
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		affiliate1 := "af_1"
+		affiliate2 := "af_2"
+
+		client1, err := client.NewClient(client.Options{
+			Cipher:      cipher,
+			Endpoint:    endpoint,
+			ClusterID:   clusterID,
+			AffiliateID: affiliate1,
+			TTL:         time.Second,
+			Insecure:    true,
+		})
+		require.NoError(t, err)
+
+		client2, err := client.NewClient(client.Options{
+			Cipher:      cipher,
+			Endpoint:    endpoint,
+			ClusterID:   clusterID,
+			AffiliateID: affiliate2,
+			TTL:         time.Minute,
+			Insecure:    true,
+		})
+		require.NoError(t, err)
+
+		notify1 := make(chan struct{}, 1)
+		notify2 := make(chan struct{}, 1)
+
+		eg, ctx := errgroup.WithContext(ctx)
+
+		ctx1, cancel1 := context.WithCancel(ctx)
+		defer cancel1()
+
+		ctx2, cancel2 := context.WithCancel(ctx)
+		defer cancel2()
+
+		eg.Go(func() error {
+			return client1.Run(ctx1, logger, notify1)
+		})
+
+		eg.Go(func() error {
+			return client2.Run(ctx2, logger, notify2)
+		})
+
+		select {
+		case <-notify1:
+		case <-time.After(2 * time.Second):
+			require.Fail(t, "no initial snapshot update")
+		}
+
+		assert.Empty(t, client1.GetAffiliates())
+
+		select {
+		case <-notify2:
+		case <-time.After(2 * time.Second):
+			require.Fail(t, "no initial snapshot update")
+		}
+
+		assert.Empty(t, client2.GetAffiliates())
+
+		// client1 publishes an affiliate with short TTL
+		affiliate1PB := &client.Affiliate{
+			Affiliate: &clientpb.Affiliate{
+				NodeId:      affiliate1,
+				Addresses:   [][]byte{{1, 2, 3}},
+				Hostname:    "host1",
+				Nodename:    "node1",
+				MachineType: "controlplane",
+			},
+		}
+
+		require.NoError(t, client1.SetLocalData(affiliate1PB, nil))
+
+		// client2 should see the update from client1
+		for {
+			t.Logf("client2 affiliates = %d", len(client2.GetAffiliates()))
+
+			if len(client2.GetAffiliates()) == 1 {
+				break
+			}
+
+			select {
+			case <-notify2:
+			case <-time.After(2 * time.Second):
+				t.Logf("client2 affiliates on timeout = %d", len(client2.GetAffiliates()))
+
+				require.Fail(t, "no incremental update")
+			}
+		}
+
+		require.Len(t, client2.GetAffiliates(), 1)
+
+		assert.Equal(t, []*client.Affiliate{affiliate1PB}, client2.GetAffiliates())
+
+		// stop client1
+		cancel1()
+
+		for {
+			t.Logf("client2 affiliates = %d", len(client2.GetAffiliates()))
+
+			if len(client2.GetAffiliates()) == 0 {
+				break
+			}
+
+			select {
+			case <-notify2:
+			case <-time.After(2 * time.Second):
+				require.Fail(t, "no expiration")
+			}
+		}
+
+		require.Len(t, client2.GetAffiliates(), 0)
 
 		cancel()
 
