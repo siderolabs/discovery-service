@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package client_test
+package server_test
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"reflect"
 	"sort"
 	"strconv"
@@ -21,46 +20,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	clientpb "github.com/talos-systems/discovery-api/api/v1alpha1/client/pb"
+	"github.com/talos-systems/discovery-client/pkg/client"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
-
-	clientpb "github.com/talos-systems/discovery-service/api/v1alpha1/client/pb"
-	"github.com/talos-systems/discovery-service/api/v1alpha1/server/pb"
-	"github.com/talos-systems/discovery-service/internal/state"
-	"github.com/talos-systems/discovery-service/pkg/client"
-	"github.com/talos-systems/discovery-service/pkg/server"
 )
-
-func setupServer(t *testing.T) (address string) {
-	t.Helper()
-
-	lis, err := net.Listen("tcp", "localhost:0")
-	require.NoError(t, err)
-
-	logger := zaptest.NewLogger(t)
-
-	state := state.NewState(logger)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
-	go func() {
-		state.RunGC(ctx, logger, time.Second)
-	}()
-
-	s := grpc.NewServer()
-	pb.RegisterClusterServer(s, server.NewClusterServer(state, ctx.Done()))
-
-	go func() {
-		require.NoError(t, s.Serve(lis))
-	}()
-
-	t.Cleanup(s.Stop)
-
-	return lis.Addr().String()
-}
 
 //nolint:gocognit,gocyclo,cyclop
 func TestClient(t *testing.T) {

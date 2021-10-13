@@ -17,6 +17,7 @@ import (
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/talos-systems/discovery-api/api/v1alpha1/server/pb"
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -24,8 +25,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"github.com/talos-systems/discovery-service/api/v1alpha1/server/pb"
 	_ "github.com/talos-systems/discovery-service/internal/proto"
+	"github.com/talos-systems/discovery-service/internal/state"
 	"github.com/talos-systems/discovery-service/pkg/limits"
 	"github.com/talos-systems/discovery-service/pkg/server"
 )
@@ -41,7 +42,18 @@ func checkMetrics(t *testing.T, c prom.Collector) {
 func setupServer(t *testing.T) (address string) {
 	t.Helper()
 
-	srv := server.NewTestClusterServer(zaptest.NewLogger(t))
+	logger := zaptest.NewLogger(t)
+
+	state := state.NewState(logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	go func() {
+		state.RunGC(ctx, logger, time.Second)
+	}()
+
+	srv := server.NewClusterServer(state, ctx.Done())
 
 	// Check metrics before and after the test
 	// to ensure that collector does not switch from being unchecked to checked and invalid.
@@ -281,6 +293,7 @@ func TestValidation(t *testing.T) {
 		_, err = client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
 			ClusterId:   strings.Repeat("A", limits.ClusterIDMax+1),
 			AffiliateId: "fake",
+			Ttl:         durationpb.New(time.Minute),
 		})
 		require.Error(t, err)
 		assert.Equal(t, codes.InvalidArgument, status.Code(err))
@@ -288,6 +301,7 @@ func TestValidation(t *testing.T) {
 		_, err = client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
 			ClusterId:   "fake",
 			AffiliateId: strings.Repeat("A", limits.AffiliateIDMax+1),
+			Ttl:         durationpb.New(time.Minute),
 		})
 		require.Error(t, err)
 		assert.Equal(t, codes.InvalidArgument, status.Code(err))
@@ -296,6 +310,7 @@ func TestValidation(t *testing.T) {
 			ClusterId:     "fake",
 			AffiliateId:   "fake",
 			AffiliateData: bytes.Repeat([]byte{0}, limits.AffiliateDataMax+1),
+			Ttl:           durationpb.New(time.Minute),
 		})
 		require.Error(t, err)
 		assert.Equal(t, codes.InvalidArgument, status.Code(err))
@@ -304,6 +319,7 @@ func TestValidation(t *testing.T) {
 			ClusterId:          "fake",
 			AffiliateId:        "fake",
 			AffiliateEndpoints: [][]byte{bytes.Repeat([]byte{0}, limits.AffiliateEndpointMax+1)},
+			Ttl:                durationpb.New(time.Minute),
 		})
 		require.Error(t, err)
 		assert.Equal(t, codes.InvalidArgument, status.Code(err))
@@ -316,6 +332,7 @@ func TestValidation(t *testing.T) {
 			_, err := client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
 				ClusterId:   "fatcluster",
 				AffiliateId: fmt.Sprintf("af%d", i),
+				Ttl:         durationpb.New(time.Minute),
 			})
 			require.NoError(t, err)
 		}
@@ -323,6 +340,7 @@ func TestValidation(t *testing.T) {
 		_, err := client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
 			ClusterId:   "fatcluster",
 			AffiliateId: "af",
+			Ttl:         durationpb.New(time.Minute),
 		})
 		require.Error(t, err)
 		assert.Equal(t, codes.ResourceExhausted, status.Code(err))
@@ -336,6 +354,7 @@ func TestValidation(t *testing.T) {
 				ClusterId:          "smallcluster",
 				AffiliateId:        "af",
 				AffiliateEndpoints: [][]byte{[]byte(fmt.Sprintf("endpoint%d", i))},
+				Ttl:                durationpb.New(time.Minute),
 			})
 			require.NoError(t, err)
 		}
@@ -344,6 +363,7 @@ func TestValidation(t *testing.T) {
 			ClusterId:          "smallcluster",
 			AffiliateId:        "af",
 			AffiliateEndpoints: [][]byte{[]byte("endpoin")},
+			Ttl:                durationpb.New(time.Minute),
 		})
 		require.Error(t, err)
 		assert.Equal(t, codes.ResourceExhausted, status.Code(err))

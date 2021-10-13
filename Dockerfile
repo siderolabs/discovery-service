@@ -2,9 +2,12 @@
 
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2021-09-23T16:56:44Z by kres 2a27963-dirty.
+# Generated on 2021-10-13T18:17:55Z by kres 2a27963-dirty.
 
 ARG TOOLCHAIN
+
+# cleaned up specs and compiled versions
+FROM scratch AS generate
 
 FROM ghcr.io/talos-systems/ca-certificates:v0.3.0-12-g90722c3 AS image-ca-certificates
 
@@ -19,12 +22,6 @@ COPY .markdownlint.json .
 COPY ./README.md ./README.md
 RUN markdownlint --ignore "CHANGELOG.md" --ignore "**/node_modules/**" --ignore '**/hack/chglog/**' --rules /node_modules/sentences-per-line/index.js .
 
-# collects proto specs
-FROM scratch AS proto-specs
-ADD https://raw.githubusercontent.com/protocolbuffers/protobuf/master/src/google/protobuf/duration.proto /api/vendor/google/
-ADD api/v1alpha1/server/cluster.proto /api/v1alpha1/server/pb/
-ADD api/v1alpha1/client/affiliate.proto /api/v1alpha1/client/pb/
-
 # base toolchain image
 FROM ${TOOLCHAIN} AS toolchain
 RUN apk --update --no-cache add bash curl build-base protoc protobuf-dev
@@ -38,18 +35,6 @@ RUN curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.s
 ARG GOFUMPT_VERSION
 RUN go install mvdan.cc/gofumpt/gofumports@${GOFUMPT_VERSION} \
 	&& mv /go/bin/gofumports /bin/gofumports
-ARG PROTOBUF_GO_VERSION
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v${PROTOBUF_GO_VERSION}
-RUN mv /go/bin/protoc-gen-go /bin
-ARG GRPC_GO_VERSION
-RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v${GRPC_GO_VERSION}
-RUN mv /go/bin/protoc-gen-go-grpc /bin
-ARG GRPC_GATEWAY_VERSION
-RUN go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v${GRPC_GATEWAY_VERSION}
-RUN mv /go/bin/protoc-gen-grpc-gateway /bin
-ARG VTPROTOBUF_VERSION
-RUN go install github.com/planetscale/vtprotobuf/cmd/protoc-gen-go-vtproto@${VTPROTOBUF_VERSION}
-RUN mv /go/bin/protoc-gen-go-vtproto /bin
 
 # tools and sources
 FROM tools AS base
@@ -58,19 +43,16 @@ COPY ./go.mod .
 COPY ./go.sum .
 RUN --mount=type=cache,target=/go/pkg go mod download
 RUN --mount=type=cache,target=/go/pkg go mod verify
-COPY ./api ./api
 COPY ./cmd ./cmd
 COPY ./internal ./internal
 COPY ./pkg ./pkg
 RUN --mount=type=cache,target=/go/pkg go list -mod=readonly all >/dev/null
 
-# runs protobuf compiler
-FROM tools AS proto-compile
-COPY --from=proto-specs / /
-RUN protoc -I/api --go_out=paths=source_relative:/api --go-grpc_out=paths=source_relative:/api --go-vtproto_out=paths=source_relative:/api --go-vtproto_opt=features=marshal+unmarshal+size /api/v1alpha1/server/pb/cluster.proto
-RUN protoc -I/api --go_out=paths=source_relative:/api --go-grpc_out=paths=source_relative:/api --go-vtproto_out=paths=source_relative:/api --go-vtproto_opt=features=marshal+unmarshal+size /api/v1alpha1/client/pb/affiliate.proto
-RUN rm /api/v1alpha1/server/pb/cluster.proto
-RUN rm /api/v1alpha1/client/pb/affiliate.proto
+# builds discovery-service-linux-amd64
+FROM base AS discovery-service-linux-amd64-build
+COPY --from=generate / /
+WORKDIR /src/cmd/discovery-service
+RUN --mount=type=cache,target=/root/.cache/go-build --mount=type=cache,target=/go/pkg go build -ldflags "-s -w" -o /discovery-service-linux-amd64
 
 # runs gofumpt
 FROM base AS lint-gofumpt
@@ -94,21 +76,11 @@ FROM base AS unit-tests-run
 ARG TESTPKGS
 RUN --mount=type=cache,target=/root/.cache/go-build --mount=type=cache,target=/go/pkg --mount=type=cache,target=/tmp go test -v -covermode=atomic -coverprofile=coverage.txt -coverpkg=${TESTPKGS} -count 1 ${TESTPKGS}
 
-# cleaned up specs and compiled versions
-FROM scratch AS generate
-COPY --from=proto-compile /api/ /api/
+FROM scratch AS discovery-service-linux-amd64
+COPY --from=discovery-service-linux-amd64-build /discovery-service-linux-amd64 /discovery-service-linux-amd64
 
 FROM scratch AS unit-tests
 COPY --from=unit-tests-run /src/coverage.txt /coverage.txt
-
-# builds discovery-service-linux-amd64
-FROM base AS discovery-service-linux-amd64-build
-COPY --from=generate / /
-WORKDIR /src/cmd/discovery-service
-RUN --mount=type=cache,target=/root/.cache/go-build --mount=type=cache,target=/go/pkg go build -ldflags "-s -w" -o /discovery-service-linux-amd64
-
-FROM scratch AS discovery-service-linux-amd64
-COPY --from=discovery-service-linux-amd64-build /discovery-service-linux-amd64 /discovery-service-linux-amd64
 
 FROM discovery-service-linux-${TARGETARCH} AS discovery-service
 

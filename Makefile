@@ -1,6 +1,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2021-09-22T14:57:10Z by kres 2a27963-dirty.
+# Generated on 2021-10-13T18:17:55Z by kres 2a27963-dirty.
 
 # common variables
 
@@ -101,9 +101,6 @@ fmt:  ## Formats the source code
 		bash -c "export GO111MODULE=on; export GOPROXY=https://proxy.golang.org; \
 		go install mvdan.cc/gofumpt/gofumports@$(GOFUMPT_VERSION) && \
 		gofumports -w -local github.com/talos-systems/discovery-service ."
-
-generate:  ## Generate .proto definitions.
-	@$(MAKE) local-$@ DEST=./
 
 .PHONY: base
 base:  ## Prepare base toolchain

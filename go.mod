@@ -3,21 +3,23 @@ module github.com/talos-systems/discovery-service
 go 1.17
 
 require (
-	github.com/cenkalti/backoff/v4 v4.1.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/stretchr/testify v1.7.0
+	github.com/talos-systems/discovery-api v0.1.0
+	github.com/talos-systems/discovery-client v0.1.0
 	github.com/talos-systems/go-debug v0.2.1
 	go.uber.org/zap v1.19.1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	google.golang.org/grpc v1.40.0
+	google.golang.org/grpc v1.41.0
 	google.golang.org/protobuf v1.27.1
 	inet.af/netaddr v0.0.0-20210903134321-85fa6c94624e
 )
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/cenkalti/backoff/v4 v4.1.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.0 // indirect
