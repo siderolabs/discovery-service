@@ -46,7 +46,7 @@ func NewClusterServer(state *state.State, stopCh <-chan struct{}) *ClusterServer
 	}
 
 	// initialize vectors to set correct descriptors
-	srv.mHello.WithLabelValues("unknown")
+	srv.mHello.WithLabelValues(parseVersion(""))
 
 	return srv
 }
@@ -58,10 +58,7 @@ func NewTestClusterServer(logger *zap.Logger) *ClusterServer {
 
 // Hello implements cluster API.
 func (srv *ClusterServer) Hello(ctx context.Context, req *pb.HelloRequest) (*pb.HelloResponse, error) {
-	clientVersion := req.ClientVersion
-	if clientVersion == "" {
-		clientVersion = "unknown"
-	}
+	clientVersion := parseVersion(req.ClientVersion)
 
 	srv.mHello.WithLabelValues(clientVersion).Inc()
 
