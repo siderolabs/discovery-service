@@ -172,7 +172,7 @@ func run(ctx context.Context, logger *zap.Logger) error {
 	}
 
 	landingServer := http.Server{
-		Handler: landing.Handler(),
+		Handler: landing.Handler(state, logger),
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)

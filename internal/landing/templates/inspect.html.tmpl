@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title> Inspect Cluster </title>
+    </head>
+    <body>
+        <form class="form-group" action="/inspect" method="GET">
+            <div class="form-group">
+                <label for="clusterID">Enter Cluster ID :</label>
+                <input type="text" id="clusterID" name="clusterID" class = "form-control" placeholder="sjdhfUG@%HKA^Srasfjskfj9987sfkj"><br>    
+            </div>   
+            <button type="submit" class="btn btn-default">Submit</button>
+        </form>
+        <br><hr>
+        {{ if .ClusterID }}
+            <h4>The affiliates associated with given cluster ID {{.ClusterID}}: </h4>
+            {{if not .Affiliates}}
+                <p>No Affiliate data found</p>
+            {{end}}
+            <ol>
+                {{range .Affiliates}} 
+                    <li class="affiliateID">Affliate ID: {{.ID}} </li>
+                    <ul>
+                        <li class="affiliateData">
+                            <span style="width:90%; word-wrap:break-word; display:inline-block;">    
+                                Affliate Data: {{.Data | printf "%x"}}
+                            </span>
+                        </li>
+                        <li class="affiliateEndpoints">Affiliate Endpoints: 
+                            <ul>
+                                {{range .Endpoints}}
+                                        <li> {{. | printf "%x"}}</li>
+                                {{end}}
+                            </ul>
+                        </li>
+                    </ul>
+                {{end}}
+            </ol>
+        {{end}}
+    </body>
+</html>
