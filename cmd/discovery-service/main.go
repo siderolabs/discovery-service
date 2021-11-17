@@ -124,12 +124,14 @@ func run(ctx context.Context, logger *zap.Logger) error {
 	serverOptions := []grpc.ServerOption{
 		grpc_middleware.WithUnaryServerChain(
 			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
+			server.AddPeerAddressUnaryServerInterceptor(),
 			grpc_zap.UnaryServerInterceptor(logger),
 			grpc_prometheus.UnaryServerInterceptor,
 			grpc_recovery.UnaryServerInterceptor(recoveryOpt),
 		),
 		grpc_middleware.WithStreamServerChain(
 			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
+			server.AddPeerAddressStreamServerInterceptor(),
 			grpc_zap.StreamServerInterceptor(logger),
 			grpc_prometheus.StreamServerInterceptor,
 			grpc_recovery.StreamServerInterceptor(recoveryOpt),

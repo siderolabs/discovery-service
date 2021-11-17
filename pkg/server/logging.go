@@ -6,6 +6,10 @@
 package server
 
 import (
+	"context"
+
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -30,4 +34,32 @@ func FieldExtractor(fullMethod string, req interface{}) map[string]interface{} {
 	}
 
 	return nil
+}
+
+// AddPeerAddressUnaryServerInterceptor sets peer.address for logging.
+func AddPeerAddressUnaryServerInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		extractPeerAddress(ctx)
+
+		return handler(ctx, req)
+	}
+}
+
+// AddPeerAddressStreamServerInterceptor sets peer.address for logging.
+func AddPeerAddressStreamServerInterceptor() grpc.StreamServerInterceptor {
+	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		ctx := ss.Context()
+
+		extractPeerAddress(ctx)
+
+		return handler(srv, ss)
+	}
+}
+
+func extractPeerAddress(ctx context.Context) {
+	if peerAddress := PeerAddress(ctx); !peerAddress.IsZero() {
+		if tags := grpc_ctxtags.Extract(ctx); tags != nil {
+			tags.Set("peer.address", peerAddress.String())
+		}
+	}
 }

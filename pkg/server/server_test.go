@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -99,6 +100,23 @@ func TestServerAPI(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, []byte{0x7f, 0x0, 0x0, 0x1}, resp.ClientIp) // 127.0.0.1
+	})
+
+	t.Run("HelloWithRealIP", func(t *testing.T) {
+		t.Parallel()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		ctx = metadata.AppendToOutgoingContext(ctx, "X-Real-IP", "1.2.3.4") // with real IP of client
+
+		resp, err := client.Hello(ctx, &pb.HelloRequest{
+			ClusterId:     "fake",
+			ClientVersion: "v0.12.0",
+		})
+		require.NoError(t, err)
+
+		assert.Equal(t, []byte{0x1, 0x2, 0x3, 0x4}, resp.ClientIp)
 	})
 
 	t.Run("AffiliateUpdate", func(t *testing.T) {

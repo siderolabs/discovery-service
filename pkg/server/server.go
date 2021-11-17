@@ -9,16 +9,13 @@ package server
 import (
 	"context"
 	"errors"
-	"net"
 	"time"
 
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/talos-systems/discovery-api/api/v1alpha1/server/pb"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-	"inet.af/netaddr"
 
 	"github.com/talos-systems/discovery-service/internal/state"
 )
@@ -69,17 +66,8 @@ func (srv *ClusterServer) Hello(ctx context.Context, req *pb.HelloRequest) (*pb.
 
 	resp := &pb.HelloResponse{}
 
-	if peer, ok := peer.FromContext(ctx); ok {
-		if addr, ok := peer.Addr.(*net.TCPAddr); ok {
-			if ip, ok := netaddr.FromStdIP(addr.IP); ok {
-				var err error
-
-				resp.ClientIp, err = ip.MarshalBinary()
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
+	if peerAddress := PeerAddress(ctx); !peerAddress.IsZero() {
+		resp.ClientIp, _ = peerAddress.MarshalBinary() //nolint:errcheck // never fails
 	}
 
 	return resp, nil
