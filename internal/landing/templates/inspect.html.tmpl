@@ -21,9 +21,9 @@
                 {{range .Affiliates}} 
                     <li class="affiliateID">Affliate ID: {{.ID}} </li>
                     <ul>
-                        <li class="affiliateData">
+                        <li class="affiliateData">Affliate Data:
                             <span style="width:90%; word-wrap:break-word; display:inline-block;">    
-                                Affliate Data: {{.Data | printf "%x"}}
+                                 {{.Data | printf "%x"}}
                             </span>
                         </li>
                         <li class="affiliateEndpoints">Affiliate Endpoints: 
