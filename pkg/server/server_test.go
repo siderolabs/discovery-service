@@ -14,12 +14,15 @@ import (
 	"testing"
 	"time"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	prom "github.com/prometheus/client_golang/prometheus"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/talos-systems/discovery-api/api/v1alpha1/server/pb"
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -41,7 +44,7 @@ func checkMetrics(t *testing.T, c prom.Collector) {
 	assert.NotZero(t, promtestutil.CollectAndCount(c), "collector should not be unchecked")
 }
 
-func setupServer(t *testing.T) (address string) {
+func setupServer(t *testing.T, rateLimit rate.Limit) (address string) {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
@@ -65,7 +68,22 @@ func setupServer(t *testing.T) (address string) {
 	lis, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
 
-	s := grpc.NewServer()
+	limiter := limits.NewIPRateLimiter(rateLimit, limits.BurstSizeMax)
+
+	serverOptions := []grpc.ServerOption{
+		grpc_middleware.WithUnaryServerChain(
+			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
+			server.AddPeerAddressUnaryServerInterceptor(),
+			server.RateLimitUnaryServerInterceptor(limiter),
+		),
+		grpc_middleware.WithStreamServerChain(
+			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
+			server.AddPeerAddressStreamServerInterceptor(),
+			server.RateLimitStreamServerInterceptor(limiter),
+		),
+	}
+
+	s := grpc.NewServer(serverOptions...)
 	pb.RegisterClusterServer(s, srv)
 
 	go func() {
@@ -80,7 +98,7 @@ func setupServer(t *testing.T) (address string) {
 func TestServerAPI(t *testing.T) {
 	t.Parallel()
 
-	addr := setupServer(t)
+	addr := setupServer(t, 5000)
 
 	conn, e := grpc.Dial(addr, grpc.WithInsecure())
 	require.NoError(t, e)
@@ -279,7 +297,7 @@ func TestServerAPI(t *testing.T) {
 func TestValidation(t *testing.T) {
 	t.Parallel()
 
-	addr := setupServer(t)
+	addr := setupServer(t, 5000)
 
 	conn, e := grpc.Dial(addr, grpc.WithInsecure())
 	require.NoError(t, e)
@@ -443,4 +461,44 @@ func TestValidation(t *testing.T) {
 		require.Error(t, err)
 		assert.Equal(t, codes.InvalidArgument, status.Code(err))
 	})
+}
+
+func testHitRateLimit(client pb.ClusterClient, ip string) func(t *testing.T) {
+	return func(t *testing.T) {
+		t.Parallel()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		ctx = metadata.AppendToOutgoingContext(ctx, "X-Real-IP", ip)
+
+		for i := 0; i < limits.BurstSizeMax; i++ {
+			_, err := client.Hello(ctx, &pb.HelloRequest{
+				ClusterId:     "fake",
+				ClientVersion: "v0.12.0",
+			})
+			require.NoError(t, err)
+		}
+
+		_, err := client.Hello(ctx, &pb.HelloRequest{
+			ClusterId:     "fake",
+			ClientVersion: "v0.12.0",
+		})
+		require.Error(t, err)
+		assert.Equal(t, codes.ResourceExhausted, status.Code(err))
+	}
+}
+
+func TestServerRateLimit(t *testing.T) {
+	t.Parallel()
+
+	addr := setupServer(t, 1)
+
+	conn, e := grpc.Dial(addr, grpc.WithInsecure())
+	require.NoError(t, e)
+
+	client := pb.NewClusterClient(conn)
+
+	t.Run("HitRateLimitIP1", testHitRateLimit(client, "1.2.3.4"))
+	t.Run("HitRateLimitIP2", testHitRateLimit(client, "5.6.7.8"))
 }

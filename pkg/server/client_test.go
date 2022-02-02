@@ -32,7 +32,7 @@ import (
 func TestClient(t *testing.T) {
 	t.Parallel()
 
-	endpoint := setupServer(t)
+	endpoint := setupServer(t, 5000)
 
 	logger := zaptest.NewLogger(t)
 

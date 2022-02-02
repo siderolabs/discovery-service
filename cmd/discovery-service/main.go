@@ -36,6 +36,7 @@ import (
 	"github.com/talos-systems/discovery-service/internal/landing"
 	_ "github.com/talos-systems/discovery-service/internal/proto"
 	"github.com/talos-systems/discovery-service/internal/state"
+	"github.com/talos-systems/discovery-service/pkg/limits"
 	"github.com/talos-systems/discovery-service/pkg/server"
 )
 
@@ -121,10 +122,13 @@ func run(ctx context.Context, logger *zap.Logger) error {
 
 	recoveryOpt := grpc_recovery.WithRecoveryHandler(recoveryHandler(logger))
 
+	limiter := limits.NewIPRateLimiter(limits.RequestsPerSecondMax, limits.BurstSizeMax)
+
 	serverOptions := []grpc.ServerOption{
 		grpc_middleware.WithUnaryServerChain(
 			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
 			server.AddPeerAddressUnaryServerInterceptor(),
+			server.RateLimitUnaryServerInterceptor(limiter),
 			grpc_zap.UnaryServerInterceptor(logger),
 			grpc_prometheus.UnaryServerInterceptor,
 			grpc_recovery.UnaryServerInterceptor(recoveryOpt),
@@ -132,6 +136,7 @@ func run(ctx context.Context, logger *zap.Logger) error {
 		grpc_middleware.WithStreamServerChain(
 			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
 			server.AddPeerAddressStreamServerInterceptor(),
+			server.RateLimitStreamServerInterceptor(limiter),
 			grpc_zap.StreamServerInterceptor(logger),
 			grpc_prometheus.StreamServerInterceptor,
 			grpc_recovery.StreamServerInterceptor(recoveryOpt),
@@ -222,6 +227,12 @@ func run(ctx context.Context, logger *zap.Logger) error {
 
 	eg.Go(func() error {
 		state.RunGC(ctx, logger, gcInterval)
+
+		return nil
+	})
+
+	eg.Go(func() error {
+		limiter.RunGC(ctx)
 
 		return nil
 	})
