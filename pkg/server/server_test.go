@@ -25,6 +25,7 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -100,7 +101,7 @@ func TestServerAPI(t *testing.T) {
 
 	addr := setupServer(t, 5000)
 
-	conn, e := grpc.Dial(addr, grpc.WithInsecure())
+	conn, e := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, e)
 
 	client := pb.NewClusterClient(conn)
@@ -299,7 +300,7 @@ func TestValidation(t *testing.T) {
 
 	addr := setupServer(t, 5000)
 
-	conn, e := grpc.Dial(addr, grpc.WithInsecure())
+	conn, e := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, e)
 
 	client := pb.NewClusterClient(conn)
@@ -494,7 +495,7 @@ func TestServerRateLimit(t *testing.T) {
 
 	addr := setupServer(t, 1)
 
-	conn, e := grpc.Dial(addr, grpc.WithInsecure())
+	conn, e := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, e)
 
 	client := pb.NewClusterClient(conn)
