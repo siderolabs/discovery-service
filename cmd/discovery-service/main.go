@@ -3,6 +3,7 @@
 // Use of this software is governed by the Business Source License
 // included in the LICENSE file.
 
+// Package main implements the discovery service entrypoint.
 package main
 
 import (
@@ -33,11 +34,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/talos-systems/discovery-service/internal/landing"
-	_ "github.com/talos-systems/discovery-service/internal/proto"
-	"github.com/talos-systems/discovery-service/internal/state"
-	"github.com/talos-systems/discovery-service/pkg/limits"
-	"github.com/talos-systems/discovery-service/pkg/server"
+	"github.com/siderolabs/discovery-service/internal/landing"
+	_ "github.com/siderolabs/discovery-service/internal/proto"
+	"github.com/siderolabs/discovery-service/internal/state"
+	"github.com/siderolabs/discovery-service/pkg/limits"
+	"github.com/siderolabs/discovery-service/pkg/server"
 )
 
 var (
@@ -124,6 +125,7 @@ func run(ctx context.Context, logger *zap.Logger) error {
 
 	limiter := limits.NewIPRateLimiter(limits.RequestsPerSecondMax, limits.BurstSizeMax)
 
+	//nolint:contextcheck
 	serverOptions := []grpc.ServerOption{
 		grpc_middleware.WithUnaryServerChain(
 			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
@@ -220,7 +222,7 @@ func run(ctx context.Context, logger *zap.Logger) error {
 
 		s.GracefulStop()
 		landingServer.Shutdown(ctx)         //nolint:errcheck
-		metricsServer.Shutdown(shutdownCtx) //nolint:errcheck
+		metricsServer.Shutdown(shutdownCtx) //nolint:errcheck,contextcheck
 
 		return nil
 	})

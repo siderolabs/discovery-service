@@ -16,7 +16,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/talos-systems/discovery-service/internal/state"
+	"github.com/siderolabs/discovery-service/internal/state"
 )
 
 //go:embed "html/index.html"

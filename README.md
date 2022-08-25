@@ -16,7 +16,7 @@ Discovery data should be submitted encrypted by the client, and service doesn't 
 The project has been split into 3 parts (as they have different source code licenses), namely:
 
 - This repository
-- [Discovery Client](https://github.com/talos-systems/discovery-client), contains the client code to interact with the server
+- [Discovery Client](https://github.com/siderolabs/discovery-client), contains the client code to interact with the server
 - [Discovery Service API](https://github.com/talos-systems/discovery-api/), provides gRPC API definition and cluster data protobuf data structures
 
 ## Setup

@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/talos-systems/discovery-service/pkg/limits"
+	"github.com/siderolabs/discovery-service/pkg/limits"
 )
 
 func validateClusterID(id string) error {

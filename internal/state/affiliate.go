@@ -9,7 +9,7 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/talos-systems/discovery-service/pkg/limits"
+	"github.com/siderolabs/discovery-service/pkg/limits"
 )
 
 // Affiliate represents cluster affiliate state.

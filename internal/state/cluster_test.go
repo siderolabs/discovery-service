@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/talos-systems/discovery-service/internal/state"
-	"github.com/talos-systems/discovery-service/pkg/limits"
+	"github.com/siderolabs/discovery-service/internal/state"
+	"github.com/siderolabs/discovery-service/pkg/limits"
 )
 
 func TestClusterMutations(t *testing.T) {

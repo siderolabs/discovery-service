@@ -11,7 +11,7 @@ import (
 
 	"google.golang.org/grpc/encoding"
 	"google.golang.org/grpc/encoding/proto"
-	protov2 "google.golang.org/protobuf/proto" //nolint:gci
+	protov2 "google.golang.org/protobuf/proto"
 )
 
 // Codec provides protobuf encoding.Codec.

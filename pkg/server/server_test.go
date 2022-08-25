@@ -31,10 +31,10 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	_ "github.com/talos-systems/discovery-service/internal/proto"
-	"github.com/talos-systems/discovery-service/internal/state"
-	"github.com/talos-systems/discovery-service/pkg/limits"
-	"github.com/talos-systems/discovery-service/pkg/server"
+	_ "github.com/siderolabs/discovery-service/internal/proto"
+	"github.com/siderolabs/discovery-service/internal/state"
+	"github.com/siderolabs/discovery-service/pkg/limits"
+	"github.com/siderolabs/discovery-service/pkg/server"
 )
 
 func checkMetrics(t *testing.T, c prom.Collector) {

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/talos-systems/discovery-service/pkg/limits"
+	"github.com/siderolabs/discovery-service/pkg/limits"
 )
 
 // Cluster is a collection of affiliates.

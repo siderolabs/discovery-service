@@ -17,8 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"github.com/talos-systems/discovery-service/internal/landing"
-	"github.com/talos-systems/discovery-service/internal/state"
+	"github.com/siderolabs/discovery-service/internal/landing"
+	"github.com/siderolabs/discovery-service/internal/state"
 )
 
 // TestInspectHandler tests the /inspect endpoint.

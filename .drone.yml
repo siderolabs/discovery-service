@@ -1,7 +1,7 @@
 ---
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2021-09-21T13:33:04Z by kres 7412de4-dirty.
+# Generated on 2022-08-25T16:11:00Z by kres d2252ce.
 
 kind: pipeline
 type: kubernetes
@@ -209,7 +209,7 @@ steps:
     path: /root/.ssh
   when:
     branch:
-    - master
+    - main
     event:
       exclude:
       - pull_request

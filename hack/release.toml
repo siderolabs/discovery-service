@@ -7,7 +7,7 @@
 commit = "HEAD"
 
 project_name = "discovery-service"
-github_repo = "talos-systems/discovery-service"
+github_repo = "siderolabs/discovery-service"
 match_deps = "^github.com/(talos-systems/[a-zA-Z0-9-]+)$"
 
 # previous = -

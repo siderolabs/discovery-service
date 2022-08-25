@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/talos-systems/discovery-service/internal/state"
+	"github.com/siderolabs/discovery-service/internal/state"
 )
 
 const updateBuffer = 32

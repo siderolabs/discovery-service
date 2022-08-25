@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/talos-systems/discovery-service/pkg/limits"
+	"github.com/siderolabs/discovery-service/pkg/limits"
 )
 
 func TestDoGC(t *testing.T) {

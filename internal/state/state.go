@@ -71,7 +71,7 @@ func NewState(logger *zap.Logger) *State {
 // GetCluster returns cluster by ID, creating it if needed.
 func (state *State) GetCluster(id string) *Cluster {
 	if v, ok := state.clusters.Load(id); ok {
-		return v.(*Cluster)
+		return v.(*Cluster) //nolint:forcetypeassert
 	}
 
 	v, loaded := state.clusters.LoadOrStore(id, NewCluster(id))
@@ -79,7 +79,7 @@ func (state *State) GetCluster(id string) *Cluster {
 		state.logger.Debug("cluster created", zap.String("cluster_id", id))
 	}
 
-	return v.(*Cluster)
+	return v.(*Cluster) //nolint:forcetypeassert
 }
 
 // GarbageCollect recursively each cluster, and remove empty clusters.
@@ -90,7 +90,7 @@ func (state *State) GarbageCollect(now time.Time) (removedClusters, removedAffil
 		removedAffiliates += ra
 		if empty {
 			state.clusters.Delete(key)
-			state.logger.Debug("cluster removed", zap.String("cluster_id", key.(string)))
+			state.logger.Debug("cluster removed", zap.String("cluster_id", key.(string))) //nolint:forcetypeassert
 			removedClusters++
 		}
 
