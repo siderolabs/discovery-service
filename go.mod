@@ -6,9 +6,9 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/prometheus/client_golang v1.13.0
+	github.com/siderolabs/discovery-client v0.1.1
 	github.com/stretchr/testify v1.8.0
 	github.com/talos-systems/discovery-api v0.1.0
-	github.com/talos-systems/discovery-client v0.1.0
 	github.com/talos-systems/go-debug v0.2.1
 	go.uber.org/zap v1.23.0
 	go4.org/netipx v0.0.0-20220812043211-3cc044ffd68d

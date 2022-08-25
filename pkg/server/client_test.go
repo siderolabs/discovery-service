@@ -19,10 +19,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/siderolabs/discovery-client/pkg/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	clientpb "github.com/talos-systems/discovery-api/api/v1alpha1/client/pb"
-	"github.com/talos-systems/discovery-client/pkg/client"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -189,6 +189,23 @@ func TestClient(t *testing.T) {
 		}
 
 		assert.Equal(t, []*client.Affiliate{affiliate1PB}, client2.GetAffiliates())
+
+		// delete affiliate1, client2 should see the update
+		client1.DeleteLocalAffiliate()
+
+		for {
+			select {
+			case <-notify2:
+			case <-time.After(time.Second):
+				require.Fail(t, "no incremental update")
+			}
+
+			if len(client2.GetAffiliates()) == 0 {
+				break
+			}
+		}
+
+		require.Len(t, client2.GetAffiliates(), 0)
 
 		cancel()
 
