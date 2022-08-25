@@ -66,7 +66,7 @@ func (srv *ClusterServer) Hello(ctx context.Context, req *pb.HelloRequest) (*pb.
 
 	resp := &pb.HelloResponse{}
 
-	if peerAddress := PeerAddress(ctx); !peerAddress.IsZero() {
+	if peerAddress := PeerAddress(ctx); !IsZero(peerAddress) {
 		resp.ClientIp, _ = peerAddress.MarshalBinary() //nolint:errcheck // never fails
 	}
 

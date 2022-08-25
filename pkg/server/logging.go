@@ -57,7 +57,7 @@ func AddPeerAddressStreamServerInterceptor() grpc.StreamServerInterceptor {
 }
 
 func extractPeerAddress(ctx context.Context) {
-	if peerAddress := PeerAddress(ctx); !peerAddress.IsZero() {
+	if peerAddress := PeerAddress(ctx); !IsZero(peerAddress) {
 		if tags := grpc_ctxtags.Extract(ctx); tags != nil {
 			tags.Set("peer.address", peerAddress.String())
 		}

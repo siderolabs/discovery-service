@@ -11,11 +11,11 @@ require (
 	github.com/talos-systems/discovery-client v0.1.0
 	github.com/talos-systems/go-debug v0.2.1
 	go.uber.org/zap v1.23.0
+	go4.org/netipx v0.0.0-20220812043211-3cc044ffd68d
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
 	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9
 	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.1
-	inet.af/netaddr v0.0.0-20220811202034-502d2d690317
 )
 
 require (
@@ -32,8 +32,6 @@ require (
 	github.com/prometheus/procfs v0.8.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
-	go4.org/intern v0.0.0-20211027215823-ae77deb06f29 // indirect
-	go4.org/unsafe/assume-no-moving-gc v0.0.0-20220617031537-928513b29760 // indirect
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
