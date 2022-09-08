@@ -45,7 +45,7 @@ func checkMetrics(t *testing.T, c prom.Collector) {
 	assert.NotZero(t, promtestutil.CollectAndCount(c), "collector should not be unchecked")
 }
 
-func setupServer(t *testing.T, rateLimit rate.Limit) (address string) {
+func setupServer(t *testing.T, rateLimit rate.Limit, redirectEndpoint string) (address string) {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
@@ -59,7 +59,7 @@ func setupServer(t *testing.T, rateLimit rate.Limit) (address string) {
 		state.RunGC(ctx, logger, time.Second)
 	}()
 
-	srv := server.NewClusterServer(state, ctx.Done())
+	srv := server.NewClusterServer(state, ctx.Done(), redirectEndpoint)
 
 	// Check metrics before and after the test
 	// to ensure that collector does not switch from being unchecked to checked and invalid.
@@ -99,7 +99,7 @@ func setupServer(t *testing.T, rateLimit rate.Limit) (address string) {
 func TestServerAPI(t *testing.T) {
 	t.Parallel()
 
-	addr := setupServer(t, 5000)
+	addr := setupServer(t, 5000, "")
 
 	conn, e := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, e)
@@ -119,6 +119,7 @@ func TestServerAPI(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, []byte{0x7f, 0x0, 0x0, 0x1}, resp.ClientIp) // 127.0.0.1
+		assert.Nil(t, resp.Redirect)
 	})
 
 	t.Run("HelloWithRealIP", func(t *testing.T) {
@@ -298,7 +299,7 @@ func TestServerAPI(t *testing.T) {
 func TestValidation(t *testing.T) {
 	t.Parallel()
 
-	addr := setupServer(t, 5000)
+	addr := setupServer(t, 5000, "")
 
 	conn, e := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, e)
@@ -493,7 +494,7 @@ func testHitRateLimit(client pb.ClusterClient, ip string) func(t *testing.T) {
 func TestServerRateLimit(t *testing.T) {
 	t.Parallel()
 
-	addr := setupServer(t, 1)
+	addr := setupServer(t, 1, "")
 
 	conn, e := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, e)
@@ -502,4 +503,26 @@ func TestServerRateLimit(t *testing.T) {
 
 	t.Run("HitRateLimitIP1", testHitRateLimit(client, "1.2.3.4"))
 	t.Run("HitRateLimitIP2", testHitRateLimit(client, "5.6.7.8"))
+}
+
+func TestServerRedirect(t *testing.T) {
+	t.Parallel()
+
+	addr := setupServer(t, 1, "new.example.com:443")
+
+	conn, e := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, e)
+
+	client := pb.NewClusterClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	resp, err := client.Hello(ctx, &pb.HelloRequest{
+		ClusterId:     "fake",
+		ClientVersion: "v0.12.0",
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, "new.example.com:443", resp.GetRedirect().GetEndpoint())
 }

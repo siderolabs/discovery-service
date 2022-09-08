@@ -30,13 +30,16 @@ type ClusterServer struct {
 	stopCh <-chan struct{}
 
 	mHello *prom.CounterVec
+
+	redirectEndpoint string
 }
 
 // NewClusterServer builds new ClusterServer.
-func NewClusterServer(state *state.State, stopCh <-chan struct{}) *ClusterServer {
+func NewClusterServer(state *state.State, stopCh <-chan struct{}, redirectEndpoint string) *ClusterServer {
 	srv := &ClusterServer{
-		state:  state,
-		stopCh: stopCh,
+		state:            state,
+		stopCh:           stopCh,
+		redirectEndpoint: redirectEndpoint,
 		mHello: prom.NewCounterVec(prom.CounterOpts{
 			Name: "discovery_server_hello_requests_total",
 			Help: "Number of hello requests by client version.",
@@ -51,7 +54,7 @@ func NewClusterServer(state *state.State, stopCh <-chan struct{}) *ClusterServer
 
 // NewTestClusterServer builds cluster server for testing code.
 func NewTestClusterServer(logger *zap.Logger) *ClusterServer {
-	return NewClusterServer(state.NewState(logger), nil)
+	return NewClusterServer(state.NewState(logger), nil, "")
 }
 
 // Hello implements cluster API.
@@ -68,6 +71,12 @@ func (srv *ClusterServer) Hello(ctx context.Context, req *pb.HelloRequest) (*pb.
 
 	if peerAddress := PeerAddress(ctx); !IsZero(peerAddress) {
 		resp.ClientIp, _ = peerAddress.MarshalBinary() //nolint:errcheck // never fails
+	}
+
+	if srv.redirectEndpoint != "" {
+		resp.Redirect = &pb.RedirectMessage{
+			Endpoint: srv.redirectEndpoint,
+		}
 	}
 
 	return resp, nil

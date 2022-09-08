@@ -42,12 +42,13 @@ import (
 )
 
 var (
-	listenAddr  = ":3000"
-	landingAddr = ":3001"
-	metricsAddr = ":2122"
-	debugAddr   = ":2123"
-	devMode     = false
-	gcInterval  = time.Minute
+	listenAddr       = ":3000"
+	landingAddr      = ":3001"
+	metricsAddr      = ":2122"
+	debugAddr        = ":2123"
+	devMode          = false
+	gcInterval       = time.Minute
+	redirectEndpoint = ""
 )
 
 func init() {
@@ -56,6 +57,7 @@ func init() {
 	flag.StringVar(&metricsAddr, "metrics-addr", metricsAddr, "prometheus metrics listen addr")
 	flag.BoolVar(&devMode, "debug", devMode, "enable debug mode")
 	flag.DurationVar(&gcInterval, "gc-interval", gcInterval, "garbage collection interval")
+	flag.StringVar(&redirectEndpoint, "redirect-endpoint", redirectEndpoint, "redirect all clients to a new endpoint (gRPC endpoint, e.g. 'example.com:443'")
 
 	if debug.Enabled {
 		flag.StringVar(&debugAddr, "debug-addr", debugAddr, "debug (pprof, trace, expvar) listen addr")
@@ -148,7 +150,7 @@ func run(ctx context.Context, logger *zap.Logger) error {
 	state := state.NewState(logger)
 	prom.MustRegister(state)
 
-	srv := server.NewClusterServer(state, ctx.Done())
+	srv := server.NewClusterServer(state, ctx.Done(), redirectEndpoint)
 	prom.MustRegister(srv)
 
 	lis, err := net.Listen("tcp", listenAddr)
