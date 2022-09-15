@@ -12,7 +12,7 @@ import (
 	"time"
 
 	prom "github.com/prometheus/client_golang/prometheus"
-	"github.com/talos-systems/discovery-api/api/v1alpha1/server/pb"
+	"github.com/siderolabs/discovery-api/api/v1alpha1/server/pb"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

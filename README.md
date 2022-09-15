@@ -17,7 +17,7 @@ The project has been split into 3 parts (as they have different source code lice
 
 - This repository
 - [Discovery Client](https://github.com/siderolabs/discovery-client), contains the client code to interact with the server
-- [Discovery Service API](https://github.com/talos-systems/discovery-api/), provides gRPC API definition and cluster data protobuf data structures
+- [Discovery Service API](https://github.com/siderolabs/discovery-api/), provides gRPC API definition and cluster data protobuf data structures
 
 ## Setup
 
@@ -27,7 +27,7 @@ All of the details to get started are present [in the Makefile](Makefile), start
 
 Once the application is running you can test the grpc functionality on the port 3000 and the http pages in browser on port 3001.
 
-To test the grpc calls, [install grpcurl](https://github.com/fullstorydev/grpcurl#installation) and clone the [Discovery Service API](https://github.com/talos-systems/discovery-api/) repository.
+To test the grpc calls, [install grpcurl](https://github.com/fullstorydev/grpcurl#installation) and clone the [Discovery Service API](https://github.com/siderolabs/discovery-api/) repository.
 
 - Sample code-block to test the grpc `Hello` call (change path accordingly)
 

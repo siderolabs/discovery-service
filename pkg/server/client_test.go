@@ -19,10 +19,10 @@ import (
 	"testing"
 	"time"
 
+	clientpb "github.com/siderolabs/discovery-api/api/v1alpha1/client/pb"
 	"github.com/siderolabs/discovery-client/pkg/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	clientpb "github.com/talos-systems/discovery-api/api/v1alpha1/client/pb"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
@@ -32,7 +32,7 @@ import (
 func TestClient(t *testing.T) {
 	t.Parallel()
 
-	endpoint := setupServer(t, 5000, "")
+	endpoint := setupServer(t, 5000, "").address
 
 	logger := zaptest.NewLogger(t)
 
@@ -518,6 +518,229 @@ func clusterSimulator(t *testing.T, endpoint string, logger *zap.Logger, numAffi
 
 		time.Sleep(100 * time.Millisecond)
 	}
+
+	cancel()
+
+	err = eg.Wait()
+	if err != nil && !errors.Is(err, context.Canceled) {
+		assert.NoError(t, err)
+	}
+}
+
+//nolint:gocognit,gocyclo,cyclop,maintidx
+func TestClientRedirect(t *testing.T) {
+	t.Parallel()
+
+	srv1 := setupServer(t, 5000, "")
+	srv2 := setupServer(t, 5000, "")
+
+	endpoint := srv1.address
+
+	logger := zaptest.NewLogger(t)
+
+	clusterID := "cluster_redirect"
+
+	key := make([]byte, 32)
+	_, err := io.ReadFull(rand.Reader, key)
+	require.NoError(t, err)
+
+	cipher, err := aes.NewCipher(key)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	affiliate1 := "affiliate_one"
+	affiliate2 := "affiliate_two"
+
+	client1, err := client.NewClient(client.Options{
+		Cipher:      cipher,
+		Endpoint:    endpoint,
+		ClusterID:   clusterID,
+		AffiliateID: affiliate1,
+		TTL:         time.Minute,
+		Insecure:    true,
+	})
+	require.NoError(t, err)
+
+	client2, err := client.NewClient(client.Options{
+		Cipher:      cipher,
+		Endpoint:    endpoint,
+		ClusterID:   clusterID,
+		AffiliateID: affiliate2,
+		TTL:         time.Minute,
+		Insecure:    true,
+	})
+	require.NoError(t, err)
+
+	notify1 := make(chan struct{}, 1)
+	notify2 := make(chan struct{}, 1)
+
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		return client1.Run(ctx, logger, notify1)
+	})
+
+	eg.Go(func() error {
+		return client2.Run(ctx, logger, notify2)
+	})
+
+	select {
+	case <-notify1:
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "no initial snapshot update")
+	}
+
+	assert.Empty(t, client1.GetAffiliates())
+
+	select {
+	case <-notify2:
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "no initial snapshot update")
+	}
+
+	assert.Empty(t, client2.GetAffiliates())
+
+	affiliate1PB := &client.Affiliate{
+		Affiliate: &clientpb.Affiliate{
+			NodeId:      affiliate1,
+			Addresses:   [][]byte{{1, 2, 3}},
+			Hostname:    "host1",
+			Nodename:    "node1",
+			MachineType: "controlplane",
+		},
+	}
+
+	require.NoError(t, client1.SetLocalData(affiliate1PB, nil))
+
+	affiliate2PB := &client.Affiliate{
+		Affiliate: &clientpb.Affiliate{
+			NodeId:      affiliate2,
+			Addresses:   [][]byte{{2, 3, 4}},
+			Hostname:    "host2",
+			Nodename:    "node2",
+			MachineType: "worker",
+		},
+	}
+
+	require.NoError(t, client2.SetLocalData(affiliate2PB, nil))
+
+	// both clients should eventually discover each other
+	for {
+		t.Logf("client1 affiliates = %d", len(client1.GetAffiliates()))
+
+		if len(client1.GetAffiliates()) == 1 {
+			break
+		}
+
+		select {
+		case <-notify1:
+		case <-time.After(2 * time.Second):
+			t.Logf("client1 affiliates on timeout = %d", len(client1.GetAffiliates()))
+
+			require.Fail(t, "no incremental update")
+		}
+	}
+
+	require.Len(t, client1.GetAffiliates(), 1)
+
+	assert.Equal(t, []*client.Affiliate{affiliate2PB}, client1.GetAffiliates())
+
+	for {
+		t.Logf("client2 affiliates = %d", len(client1.GetAffiliates()))
+
+		if len(client2.GetAffiliates()) == 1 {
+			break
+		}
+
+		select {
+		case <-notify2:
+		case <-time.After(2 * time.Second):
+			require.Fail(t, "no incremental update")
+		}
+	}
+
+	require.Len(t, client2.GetAffiliates(), 1)
+
+	assert.Equal(t, []*client.Affiliate{affiliate1PB}, client2.GetAffiliates())
+
+	// drain notify channels
+drainLoop:
+	for {
+		select {
+		case <-notify1:
+		case <-notify2:
+		case <-time.After(time.Second):
+			break drainLoop
+		}
+	}
+
+	// make srv1 redirect all clients to srv2
+	srv1.restartWithRedirect(t, srv2.address)
+
+	// both clients should get updates about each other after a reconnect
+client1Loop:
+	for {
+		select {
+		case <-notify1:
+			t.Logf("reconnect: client1 affiliates = %d", len(client1.GetAffiliates()))
+
+			if len(client1.GetAffiliates()) == 1 {
+				break client1Loop
+			}
+		case <-time.After(2 * time.Second):
+			require.Fail(t, "no incremental update")
+		}
+	}
+
+	require.Len(t, client1.GetAffiliates(), 1)
+
+	assert.Equal(t, []*client.Affiliate{affiliate2PB}, client1.GetAffiliates())
+
+client2Loop:
+	for {
+		select {
+		case <-notify2:
+			t.Logf("reconnect: client2 affiliates = %d", len(client2.GetAffiliates()))
+
+			if len(client2.GetAffiliates()) == 1 {
+				break client2Loop
+			}
+		case <-time.After(2 * time.Second):
+			require.Fail(t, "no incremental update")
+		}
+	}
+
+	require.Len(t, client2.GetAffiliates(), 1)
+
+	assert.Equal(t, []*client.Affiliate{affiliate1PB}, client2.GetAffiliates())
+
+	// stop old srv1, graceful stop should work as all clients should have disconnected
+	srv1.s.GracefulStop()
+
+	// update affiliate1, client2 should see the update
+	affiliate1PB.Endpoints = []*clientpb.Endpoint{
+		{
+			Ip:   []byte{1, 2, 3, 4},
+			Port: 5678,
+		},
+	}
+	require.NoError(t, client1.SetLocalData(affiliate1PB, nil))
+
+	for {
+		select {
+		case <-notify2:
+		case <-time.After(time.Second):
+			require.Fail(t, "no incremental update")
+		}
+
+		if len(client2.GetAffiliates()[0].Endpoints) == 1 {
+			break
+		}
+	}
+
+	assert.Equal(t, []*client.Affiliate{affiliate1PB}, client2.GetAffiliates())
 
 	cancel()
 

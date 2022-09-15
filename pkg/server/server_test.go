@@ -8,6 +8,7 @@ package server_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -18,9 +19,9 @@ import (
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	prom "github.com/prometheus/client_golang/prometheus"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/siderolabs/discovery-api/api/v1alpha1/server/pb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/talos-systems/discovery-api/api/v1alpha1/server/pb"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
@@ -45,33 +46,51 @@ func checkMetrics(t *testing.T, c prom.Collector) {
 	assert.NotZero(t, promtestutil.CollectAndCount(c), "collector should not be unchecked")
 }
 
-func setupServer(t *testing.T, rateLimit rate.Limit, redirectEndpoint string) (address string) {
+type testServer struct { //nolint:govet
+	lis           net.Listener
+	s             *grpc.Server
+	state         *state.State
+	stopCh        <-chan struct{}
+	serverOptions []grpc.ServerOption
+
+	address string
+}
+
+func setupServer(t *testing.T, rateLimit rate.Limit, redirectEndpoint string) *testServer {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
 
-	state := state.NewState(logger)
+	testServer := &testServer{}
+
+	testServer.state = state.NewState(logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
+	testServer.stopCh = ctx.Done()
+
 	go func() {
-		state.RunGC(ctx, logger, time.Second)
+		testServer.state.RunGC(ctx, logger, time.Second)
 	}()
 
-	srv := server.NewClusterServer(state, ctx.Done(), redirectEndpoint)
+	srv := server.NewClusterServer(testServer.state, testServer.stopCh, redirectEndpoint)
 
 	// Check metrics before and after the test
 	// to ensure that collector does not switch from being unchecked to checked and invalid.
 	checkMetrics(t, srv)
 	t.Cleanup(func() { checkMetrics(t, srv) })
 
-	lis, err := net.Listen("tcp", "localhost:0")
+	var err error
+
+	testServer.lis, err = net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
+
+	testServer.address = testServer.lis.Addr().String()
 
 	limiter := limits.NewIPRateLimiter(rateLimit, limits.BurstSizeMax)
 
-	serverOptions := []grpc.ServerOption{
+	testServer.serverOptions = []grpc.ServerOption{
 		grpc_middleware.WithUnaryServerChain(
 			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
 			server.AddPeerAddressUnaryServerInterceptor(),
@@ -84,22 +103,46 @@ func setupServer(t *testing.T, rateLimit rate.Limit, redirectEndpoint string) (a
 		),
 	}
 
-	s := grpc.NewServer(serverOptions...)
-	pb.RegisterClusterServer(s, srv)
+	testServer.s = grpc.NewServer(testServer.serverOptions...)
+	pb.RegisterClusterServer(testServer.s, srv)
 
 	go func() {
-		require.NoError(t, s.Serve(lis))
+		if stopErr := testServer.s.Serve(testServer.lis); stopErr != nil && !errors.Is(stopErr, grpc.ErrServerStopped) {
+			require.NoError(t, err)
+		}
 	}()
 
-	t.Cleanup(s.Stop)
+	t.Cleanup(testServer.s.Stop)
 
-	return lis.Addr().String()
+	return testServer
+}
+
+func (testServer *testServer) restartWithRedirect(t *testing.T, redirectEndpoint string) {
+	testServer.s.Stop()
+
+	srv := server.NewClusterServer(testServer.state, testServer.stopCh, redirectEndpoint)
+
+	testServer.s = grpc.NewServer(testServer.serverOptions...)
+	pb.RegisterClusterServer(testServer.s, srv)
+
+	var err error
+
+	testServer.lis, err = net.Listen("tcp", testServer.address)
+	require.NoError(t, err)
+
+	go func() {
+		if stopErr := testServer.s.Serve(testServer.lis); stopErr != nil && !errors.Is(stopErr, grpc.ErrServerStopped) {
+			require.NoError(t, err)
+		}
+	}()
+
+	t.Cleanup(testServer.s.Stop)
 }
 
 func TestServerAPI(t *testing.T) {
 	t.Parallel()
 
-	addr := setupServer(t, 5000, "")
+	addr := setupServer(t, 5000, "").address
 
 	conn, e := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, e)
@@ -299,7 +342,7 @@ func TestServerAPI(t *testing.T) {
 func TestValidation(t *testing.T) {
 	t.Parallel()
 
-	addr := setupServer(t, 5000, "")
+	addr := setupServer(t, 5000, "").address
 
 	conn, e := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, e)
@@ -494,7 +537,7 @@ func testHitRateLimit(client pb.ClusterClient, ip string) func(t *testing.T) {
 func TestServerRateLimit(t *testing.T) {
 	t.Parallel()
 
-	addr := setupServer(t, 1, "")
+	addr := setupServer(t, 1, "").address
 
 	conn, e := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, e)
@@ -508,7 +551,7 @@ func TestServerRateLimit(t *testing.T) {
 func TestServerRedirect(t *testing.T) {
 	t.Parallel()
 
-	addr := setupServer(t, 1, "new.example.com:443")
+	addr := setupServer(t, 1, "new.example.com:443").address
 
 	conn, e := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, e)

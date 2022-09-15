@@ -26,7 +26,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/talos-systems/discovery-api/api/v1alpha1/server/pb"
+	"github.com/siderolabs/discovery-api/api/v1alpha1/server/pb"
 	"github.com/talos-systems/go-debug"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
