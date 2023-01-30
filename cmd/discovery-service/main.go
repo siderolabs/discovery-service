@@ -27,7 +27,7 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/siderolabs/discovery-api/api/v1alpha1/server/pb"
-	"github.com/talos-systems/go-debug"
+	"github.com/siderolabs/go-debug"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -116,7 +116,7 @@ func run(ctx context.Context, logger *zap.Logger) error {
 
 	defer logger.Info("service shut down")
 
-	// Recovery is installed as the the first middleware in the chain to handle panics (via defer and recover()) in all subsequent middlewares.
+	// Recovery is installed as the first middleware in the chain to handle panics (via defer and recover()) in all subsequent middlewares.
 
 	// Logging is installed as the first middleware (even before recovery middleware) in the chain
 	// so that request in the form it was received and status sent on the wire is logged (error/success).
