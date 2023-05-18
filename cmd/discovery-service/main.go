@@ -19,7 +19,6 @@ import (
 	"syscall"
 	"time"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
@@ -129,7 +128,7 @@ func run(ctx context.Context, logger *zap.Logger) error {
 
 	//nolint:contextcheck
 	serverOptions := []grpc.ServerOption{
-		grpc_middleware.WithUnaryServerChain(
+		grpc.ChainUnaryInterceptor(
 			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
 			server.AddPeerAddressUnaryServerInterceptor(),
 			server.RateLimitUnaryServerInterceptor(limiter),
@@ -137,7 +136,7 @@ func run(ctx context.Context, logger *zap.Logger) error {
 			grpc_prometheus.UnaryServerInterceptor,
 			grpc_recovery.UnaryServerInterceptor(recoveryOpt),
 		),
-		grpc_middleware.WithStreamServerChain(
+		grpc.ChainStreamInterceptor(
 			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
 			server.AddPeerAddressStreamServerInterceptor(),
 			server.RateLimitStreamServerInterceptor(limiter),

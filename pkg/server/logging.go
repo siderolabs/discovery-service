@@ -15,7 +15,7 @@ import (
 )
 
 // FieldExtractor prepares tags for logging and tracing out of the request.
-func FieldExtractor(fullMethod string, req interface{}) map[string]interface{} {
+func FieldExtractor(_ string, req interface{}) map[string]interface{} {
 	if msg, ok := req.(proto.Message); ok {
 		r := msg.ProtoReflect()
 		fields := r.Descriptor().Fields()

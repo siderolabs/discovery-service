@@ -83,7 +83,7 @@ func (srv *ClusterServer) Hello(ctx context.Context, req *pb.HelloRequest) (*pb.
 }
 
 // AffiliateUpdate implements cluster API.
-func (srv *ClusterServer) AffiliateUpdate(ctx context.Context, req *pb.AffiliateUpdateRequest) (*pb.AffiliateUpdateResponse, error) {
+func (srv *ClusterServer) AffiliateUpdate(_ context.Context, req *pb.AffiliateUpdateRequest) (*pb.AffiliateUpdateResponse, error) {
 	if err := validateClusterID(req.ClusterId); err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func (srv *ClusterServer) AffiliateUpdate(ctx context.Context, req *pb.Affiliate
 }
 
 // AffiliateDelete implements cluster API.
-func (srv *ClusterServer) AffiliateDelete(ctx context.Context, req *pb.AffiliateDeleteRequest) (*pb.AffiliateDeleteResponse, error) {
+func (srv *ClusterServer) AffiliateDelete(_ context.Context, req *pb.AffiliateDeleteRequest) (*pb.AffiliateDeleteResponse, error) {
 	if err := validateClusterID(req.ClusterId); err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func (srv *ClusterServer) AffiliateDelete(ctx context.Context, req *pb.Affiliate
 }
 
 // List implements cluster API.
-func (srv *ClusterServer) List(ctx context.Context, req *pb.ListRequest) (*pb.ListResponse, error) {
+func (srv *ClusterServer) List(_ context.Context, req *pb.ListRequest) (*pb.ListResponse, error) {
 	if err := validateClusterID(req.ClusterId); err != nil {
 		return nil, err
 	}

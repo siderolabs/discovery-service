@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	prom "github.com/prometheus/client_golang/prometheus"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
@@ -91,12 +90,12 @@ func setupServer(t *testing.T, rateLimit rate.Limit, redirectEndpoint string) *t
 	limiter := limits.NewIPRateLimiter(rateLimit, limits.BurstSizeMax)
 
 	testServer.serverOptions = []grpc.ServerOption{
-		grpc_middleware.WithUnaryServerChain(
+		grpc.ChainUnaryInterceptor(
 			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
 			server.AddPeerAddressUnaryServerInterceptor(),
 			server.RateLimitUnaryServerInterceptor(limiter),
 		),
-		grpc_middleware.WithStreamServerChain(
+		grpc.ChainStreamInterceptor(
 			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
 			server.AddPeerAddressStreamServerInterceptor(),
 			server.RateLimitStreamServerInterceptor(limiter),

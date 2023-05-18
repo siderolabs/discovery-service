@@ -46,11 +46,7 @@ func InspectHandler(w http.ResponseWriter, req *http.Request, state *state.State
 	fetchedCluster := state.GetCluster(clusterData.ClusterID)
 	clusterData.Affiliates = fetchedCluster.List()
 
-	if err := inspectPage.Execute(w, clusterData); err != nil {
-		return err
-	}
-
-	return nil
+	return inspectPage.Execute(w, clusterData)
 }
 
 // Handler returns static landing page handler.
