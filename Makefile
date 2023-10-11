@@ -1,11 +1,12 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2023-05-18T15:29:10Z by kres latest.
+# Generated on 2023-10-10T17:36:54Z by kres latest.
 
 # common variables
 
 SHA := $(shell git describe --match=none --always --abbrev=8 --dirty)
 TAG := $(shell git describe --tag --always --dirty)
+ABBREV_TAG := $(shell git describe --tags >/dev/null 2>/dev/null && git describe --tag --always --match v[0-9]\* --abbrev=0 || echo 'undefined')
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 ARTIFACTS := _out
 WITH_DEBUG ?= false
@@ -13,18 +14,20 @@ WITH_RACE ?= false
 REGISTRY ?= ghcr.io
 USERNAME ?= siderolabs
 REGISTRY_AND_USERNAME ?= $(REGISTRY)/$(USERNAME)
-GOLANGCILINT_VERSION ?= v1.52.2
-GOFUMPT_VERSION ?= v0.5.0
-GO_VERSION ?= 1.20
-GOIMPORTS_VERSION ?= v0.9.1
-PROTOBUF_GO_VERSION ?= 1.28.1
+PROTOBUF_GO_VERSION ?= 1.31.0
 GRPC_GO_VERSION ?= 1.3.0
-GRPC_GATEWAY_VERSION ?= 2.15.2
-VTPROTOBUF_VERSION ?= 0.4.0
+GRPC_GATEWAY_VERSION ?= 2.18.0
+VTPROTOBUF_VERSION ?= 0.5.0
 DEEPCOPY_VERSION ?= v0.5.5
+GOLANGCILINT_VERSION ?= v1.54.2
+GOFUMPT_VERSION ?= v0.5.0
+GO_VERSION ?= 1.21.1
+GOIMPORTS_VERSION ?= v0.13.0
 GO_BUILDFLAGS ?=
 GO_LDFLAGS ?=
 CGO_ENABLED ?= 0
+GOTOOLCHAIN ?= local
+GOEXPERIMENT ?= loopvar
 TESTPKGS ?= ./...
 KRES_IMAGE ?= ghcr.io/siderolabs/kres:latest
 CONFORMANCE_IMAGE ?= ghcr.io/siderolabs/conform:latest
@@ -37,28 +40,32 @@ PROGRESS ?= auto
 PUSH ?= false
 CI_ARGS ?=
 COMMON_ARGS = --file=Dockerfile
+COMMON_ARGS += --provenance=false
 COMMON_ARGS += --progress=$(PROGRESS)
 COMMON_ARGS += --platform=$(PLATFORM)
 COMMON_ARGS += --push=$(PUSH)
 COMMON_ARGS += --build-arg=ARTIFACTS="$(ARTIFACTS)"
 COMMON_ARGS += --build-arg=SHA="$(SHA)"
 COMMON_ARGS += --build-arg=TAG="$(TAG)"
+COMMON_ARGS += --build-arg=ABBREV_TAG="$(ABBREV_TAG)"
 COMMON_ARGS += --build-arg=USERNAME="$(USERNAME)"
 COMMON_ARGS += --build-arg=REGISTRY="$(REGISTRY)"
 COMMON_ARGS += --build-arg=TOOLCHAIN="$(TOOLCHAIN)"
 COMMON_ARGS += --build-arg=CGO_ENABLED="$(CGO_ENABLED)"
 COMMON_ARGS += --build-arg=GO_BUILDFLAGS="$(GO_BUILDFLAGS)"
 COMMON_ARGS += --build-arg=GO_LDFLAGS="$(GO_LDFLAGS)"
-COMMON_ARGS += --build-arg=GOLANGCILINT_VERSION="$(GOLANGCILINT_VERSION)"
-COMMON_ARGS += --build-arg=GOFUMPT_VERSION="$(GOFUMPT_VERSION)"
-COMMON_ARGS += --build-arg=GOIMPORTS_VERSION="$(GOIMPORTS_VERSION)"
+COMMON_ARGS += --build-arg=GOTOOLCHAIN="$(GOTOOLCHAIN)"
+COMMON_ARGS += --build-arg=GOEXPERIMENT="$(GOEXPERIMENT)"
 COMMON_ARGS += --build-arg=PROTOBUF_GO_VERSION="$(PROTOBUF_GO_VERSION)"
 COMMON_ARGS += --build-arg=GRPC_GO_VERSION="$(GRPC_GO_VERSION)"
 COMMON_ARGS += --build-arg=GRPC_GATEWAY_VERSION="$(GRPC_GATEWAY_VERSION)"
 COMMON_ARGS += --build-arg=VTPROTOBUF_VERSION="$(VTPROTOBUF_VERSION)"
 COMMON_ARGS += --build-arg=DEEPCOPY_VERSION="$(DEEPCOPY_VERSION)"
+COMMON_ARGS += --build-arg=GOLANGCILINT_VERSION="$(GOLANGCILINT_VERSION)"
+COMMON_ARGS += --build-arg=GOIMPORTS_VERSION="$(GOIMPORTS_VERSION)"
+COMMON_ARGS += --build-arg=GOFUMPT_VERSION="$(GOFUMPT_VERSION)"
 COMMON_ARGS += --build-arg=TESTPKGS="$(TESTPKGS)"
-TOOLCHAIN ?= docker.io/golang:1.20-alpine
+TOOLCHAIN ?= docker.io/golang:1.21-alpine
 
 # help menu
 
@@ -126,7 +133,8 @@ lint-gofumpt:  ## Runs gofumpt linter.
 .PHONY: fmt
 fmt:  ## Formats the source code
 	@docker run --rm -it -v $(PWD):/src -w /src golang:$(GO_VERSION) \
-		bash -c "export GO111MODULE=on; export GOPROXY=https://proxy.golang.org; \
+		bash -c "export GOEXPERIMENT=loopvar; export GOTOOLCHAIN=local; \
+		export GO111MODULE=on; export GOPROXY=https://proxy.golang.org; \
 		go install mvdan.cc/gofumpt@$(GOFUMPT_VERSION) && \
 		gofumpt -w ."
 
@@ -150,7 +158,7 @@ unit-tests-race:  ## Performs unit tests with race detection enabled.
 
 .PHONY: coverage
 coverage:  ## Upload coverage data to codecov.io.
-	bash -c "bash <(curl -s https://codecov.io/bash) -f $(ARTIFACTS)/coverage.txt -X fix"
+	bash -c "bash <(curl -s https://codecov.io/bash) -f $(ARTIFACTS)/coverage-unit-tests.txt -X fix"
 
 .PHONY: $(ARTIFACTS)/discovery-service-linux-amd64
 $(ARTIFACTS)/discovery-service-linux-amd64:
@@ -176,7 +184,7 @@ image-discovery-service:  ## Builds image for discovery-service.
 .PHONY: rekres
 rekres:
 	@docker pull $(KRES_IMAGE)
-	@docker run --rm -v $(PWD):/src -w /src -e GITHUB_TOKEN $(KRES_IMAGE)
+	@docker run --rm --net=host -v $(PWD):/src -w /src -e GITHUB_TOKEN $(KRES_IMAGE)
 
 .PHONY: help
 help:  ## This help menu.
