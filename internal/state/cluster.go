@@ -6,8 +6,12 @@
 package state
 
 import (
+	"slices"
 	"sync"
 	"time"
+
+	"github.com/siderolabs/gen/maps"
+	"github.com/siderolabs/gen/xslices"
 
 	"github.com/siderolabs/discovery-service/pkg/limits"
 )
@@ -90,13 +94,7 @@ func (cluster *Cluster) List() []*AffiliateExport {
 	cluster.affiliatesMu.Lock()
 	defer cluster.affiliatesMu.Unlock()
 
-	result := make([]*AffiliateExport, 0, len(cluster.affiliates))
-
-	for _, affiliate := range cluster.affiliates {
-		result = append(result, affiliate.Export())
-	}
-
-	return result
+	return xslices.Map(maps.Values(cluster.affiliates), func(affiliate *Affiliate) *AffiliateExport { return affiliate.Export() })
 }
 
 // Subscribe to the affiliate updates.
@@ -108,11 +106,7 @@ func (cluster *Cluster) Subscribe(ch chan<- *Notification) ([]*AffiliateExport, 
 	cluster.subscriptionsMu.Lock()
 	defer cluster.subscriptionsMu.Unlock()
 
-	snapshot := make([]*AffiliateExport, 0, len(cluster.affiliates))
-
-	for _, affiliate := range cluster.affiliates {
-		snapshot = append(snapshot, affiliate.Export())
-	}
+	snapshot := xslices.Map(maps.Values(cluster.affiliates), func(affiliate *Affiliate) *AffiliateExport { return affiliate.Export() })
 
 	subscription := &Subscription{
 		cluster: cluster,
@@ -129,14 +123,12 @@ func (cluster *Cluster) unsubscribe(subscription *Subscription) {
 	cluster.subscriptionsMu.Lock()
 	defer cluster.subscriptionsMu.Unlock()
 
-	for i := range cluster.subscriptions {
-		if cluster.subscriptions[i] == subscription {
-			cluster.subscriptions[i] = cluster.subscriptions[len(cluster.subscriptions)-1]
-			cluster.subscriptions[len(cluster.subscriptions)-1] = nil
-			cluster.subscriptions = cluster.subscriptions[:len(cluster.subscriptions)-1]
+	idx := slices.Index(cluster.subscriptions, subscription)
 
-			return
-		}
+	if idx != -1 {
+		cluster.subscriptions[idx] = cluster.subscriptions[len(cluster.subscriptions)-1]
+		cluster.subscriptions[len(cluster.subscriptions)-1] = nil
+		cluster.subscriptions = cluster.subscriptions[:len(cluster.subscriptions)-1]
 	}
 }
 
@@ -171,7 +163,7 @@ func (cluster *Cluster) GarbageCollect(now time.Time) (removedAffiliates int, em
 
 func (cluster *Cluster) notify(notifications ...*Notification) {
 	cluster.subscriptionsMu.Lock()
-	subscriptions := append([]*Subscription(nil), cluster.subscriptions...)
+	subscriptions := slices.Clone(cluster.subscriptions)
 	cluster.subscriptionsMu.Unlock()
 
 	for _, notification := range notifications {

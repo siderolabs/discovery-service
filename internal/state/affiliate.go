@@ -7,6 +7,7 @@ package state
 
 import (
 	"bytes"
+	"slices"
 	"time"
 
 	"github.com/siderolabs/discovery-service/pkg/limits"
@@ -113,6 +114,11 @@ func (affiliate *Affiliate) GarbageCollect(now time.Time) (remove, changed bool)
 	}
 
 	affiliate.endpoints = affiliate.endpoints[:n]
+
+	// garbage collect extra capacity
+	if cap(affiliate.endpoints) > 8 && cap(affiliate.endpoints) > 2*len(affiliate.endpoints) {
+		affiliate.endpoints = slices.Clip(affiliate.endpoints)
+	}
 
 	return
 }

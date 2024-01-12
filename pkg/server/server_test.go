@@ -31,6 +31,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"github.com/siderolabs/discovery-service/internal/limiter"
 	_ "github.com/siderolabs/discovery-service/internal/proto"
 	"github.com/siderolabs/discovery-service/internal/state"
 	"github.com/siderolabs/discovery-service/pkg/limits"
@@ -87,7 +88,7 @@ func setupServer(t *testing.T, rateLimit rate.Limit, redirectEndpoint string) *t
 
 	testServer.address = testServer.lis.Addr().String()
 
-	limiter := limits.NewIPRateLimiter(rateLimit, limits.BurstSizeMax)
+	limiter := limiter.NewIPRateLimiter(rateLimit, limits.IPRateBurstSizeMax)
 
 	testServer.serverOptions = []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
@@ -516,7 +517,7 @@ func testHitRateLimit(client pb.ClusterClient, ip string) func(t *testing.T) {
 
 		ctx = metadata.AppendToOutgoingContext(ctx, "X-Real-IP", ip)
 
-		for i := 0; i < limits.BurstSizeMax; i++ {
+		for i := 0; i < limits.IPRateBurstSizeMax; i++ {
 			_, err := client.Hello(ctx, &pb.HelloRequest{
 				ClusterId:     "fake",
 				ClientVersion: "v0.12.0",

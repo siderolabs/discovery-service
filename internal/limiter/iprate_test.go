@@ -3,27 +3,28 @@
 // Use of this software is governed by the Business Source License
 // included in the LICENSE file.
 
-package limits_test
+package limiter_test
 
 import (
+	"net/netip"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/siderolabs/discovery-service/pkg/limits"
+	"github.com/siderolabs/discovery-service/internal/limiter"
 )
 
 func TestDoGC(t *testing.T) {
 	t.Parallel()
 
-	const (
-		testIP1 = "1.1.1.1"
-		testIP2 = "2.2.2.2"
+	var (
+		testIP1 = netip.MustParseAddr("1.1.1.1")
+		testIP2 = netip.MustParseAddr("2.2.2.2")
 	)
 
-	limiter := limits.NewIPRateLimiter(1, 1)
+	limiter := limiter.NewIPRateLimiter(1, 1)
 
 	// hit the bucket size
 	lim1 := limiter.Get(testIP1)
@@ -49,12 +50,12 @@ func TestDoGC(t *testing.T) {
 func TestIndependentLimiters(t *testing.T) {
 	t.Parallel()
 
-	const (
-		testIP1 = "1.1.1.1"
-		testIP2 = "2.2.2.2"
+	var (
+		testIP1 = netip.MustParseAddr("1.1.1.1")
+		testIP2 = netip.MustParseAddr("2.2.2.2")
 	)
 
-	limiter := limits.NewIPRateLimiter(1, 1)
+	limiter := limiter.NewIPRateLimiter(1, 1)
 
 	require.True(t, limiter.Get(testIP1).Allow())
 	require.False(t, limiter.Get(testIP1).Allow())

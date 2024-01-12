@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/siderolabs/discovery-service/internal/landing"
+	"github.com/siderolabs/discovery-service/internal/limiter"
 	_ "github.com/siderolabs/discovery-service/internal/proto"
 	"github.com/siderolabs/discovery-service/internal/state"
 	"github.com/siderolabs/discovery-service/pkg/limits"
@@ -124,7 +125,7 @@ func run(ctx context.Context, logger *zap.Logger) error {
 
 	recoveryOpt := grpc_recovery.WithRecoveryHandler(recoveryHandler(logger))
 
-	limiter := limits.NewIPRateLimiter(limits.RequestsPerSecondMax, limits.BurstSizeMax)
+	limiter := limiter.NewIPRateLimiter(limits.IPRateRequestsPerSecondMax, limits.IPRateBurstSizeMax)
 
 	//nolint:contextcheck
 	serverOptions := []grpc.ServerOption{

@@ -1,6 +1,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2023-10-10T17:36:54Z by kres latest.
+# Generated on 2024-01-12T14:05:03Z by kres 0e666ea-dirty.
 
 # common variables
 
@@ -14,15 +14,15 @@ WITH_RACE ?= false
 REGISTRY ?= ghcr.io
 USERNAME ?= siderolabs
 REGISTRY_AND_USERNAME ?= $(REGISTRY)/$(USERNAME)
-PROTOBUF_GO_VERSION ?= 1.31.0
+PROTOBUF_GO_VERSION ?= 1.32.0
 GRPC_GO_VERSION ?= 1.3.0
-GRPC_GATEWAY_VERSION ?= 2.18.0
+GRPC_GATEWAY_VERSION ?= 2.19.0
 VTPROTOBUF_VERSION ?= 0.5.0
 DEEPCOPY_VERSION ?= v0.5.5
-GOLANGCILINT_VERSION ?= v1.54.2
+GOLANGCILINT_VERSION ?= v1.55.2
 GOFUMPT_VERSION ?= v0.5.0
-GO_VERSION ?= 1.21.1
-GOIMPORTS_VERSION ?= v0.13.0
+GO_VERSION ?= 1.21.6
+GOIMPORTS_VERSION ?= v0.17.0
 GO_BUILDFLAGS ?=
 GO_LDFLAGS ?=
 CGO_ENABLED ?= 0
@@ -184,7 +184,7 @@ image-discovery-service:  ## Builds image for discovery-service.
 .PHONY: rekres
 rekres:
 	@docker pull $(KRES_IMAGE)
-	@docker run --rm --net=host -v $(PWD):/src -w /src -e GITHUB_TOKEN $(KRES_IMAGE)
+	@docker run --rm --net=host --user $(shell id -u):$(shell id -g) -v $(PWD):/src -w /src -e GITHUB_TOKEN $(KRES_IMAGE)
 
 .PHONY: help
 help:  ## This help menu.

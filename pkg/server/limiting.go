@@ -7,18 +7,19 @@ package server
 
 import (
 	"context"
+	"net/netip"
 
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/siderolabs/discovery-service/pkg/limits"
+	"github.com/siderolabs/discovery-service/internal/limiter"
 )
 
-func pause(ctx context.Context, limiter *limits.IPRateLimiter) error {
+func pause(ctx context.Context, limiter *limiter.IPRateLimiter) error {
 	iPAddr := extractIPAddressFromTags(ctx)
-	if iPAddr != "" {
+	if !IsZero(iPAddr) {
 		limit := limiter.Get(iPAddr)
 
 		err := limit.Wait(ctx)
@@ -31,7 +32,7 @@ func pause(ctx context.Context, limiter *limits.IPRateLimiter) error {
 }
 
 // RateLimitUnaryServerInterceptor limits Unary PRCs from an IPAdress.
-func RateLimitUnaryServerInterceptor(limiter *limits.IPRateLimiter) grpc.UnaryServerInterceptor {
+func RateLimitUnaryServerInterceptor(limiter *limiter.IPRateLimiter) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 		err = pause(ctx, limiter)
 		if err != nil {
@@ -43,7 +44,7 @@ func RateLimitUnaryServerInterceptor(limiter *limits.IPRateLimiter) grpc.UnarySe
 }
 
 // RateLimitStreamServerInterceptor limits Stream PRCs from an IPAdress.
-func RateLimitStreamServerInterceptor(limiter *limits.IPRateLimiter) grpc.StreamServerInterceptor {
+func RateLimitStreamServerInterceptor(limiter *limiter.IPRateLimiter) grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		ctx := ss.Context()
 
@@ -56,15 +57,15 @@ func RateLimitStreamServerInterceptor(limiter *limits.IPRateLimiter) grpc.Stream
 	}
 }
 
-func extractIPAddressFromTags(ctx context.Context) string {
+func extractIPAddressFromTags(ctx context.Context) netip.Addr {
 	if tags := grpc_ctxtags.Extract(ctx); tags != nil {
 		values := tags.Values()
-		if stringValue, ok := values["peer.address"]; ok {
-			if iPString, ok := stringValue.(string); ok {
-				return iPString
+		if addrV, ok := values["peer.address"]; ok {
+			if addr, ok := addrV.(netip.Addr); ok {
+				return addr
 			}
 		}
 	}
 
-	return ""
+	return netip.Addr{}
 }

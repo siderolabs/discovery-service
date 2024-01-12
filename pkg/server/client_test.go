@@ -418,7 +418,7 @@ func clusterSimulator(t *testing.T, endpoint string, logger *zap.Logger, numAffi
 		require.NoError(t, affiliates[i].SetLocalData(&client.Affiliate{
 			Affiliate: &clientpb.Affiliate{
 				NodeId:   fmt.Sprintf("affiliate-%d", i),
-				Hostname: fmt.Sprintf("%d", i),
+				Hostname: strconv.Itoa(i),
 			},
 			Endpoints: []*clientpb.Endpoint{
 				{
