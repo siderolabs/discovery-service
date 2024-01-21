@@ -1,6 +1,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2024-01-12T12:34:10Z by kres latest.
+# Generated on 2024-01-22T17:52:47Z by kres latest.
 
 name: default
 concurrency:
@@ -80,12 +80,14 @@ jobs:
       - name: push-discovery-service
         if: github.event_name != 'pull_request'
         env:
+          PLATFORM: linux/amd64,linux/arm64
           PUSH: "true"
         run: |
           make image-discovery-service
       - name: push-discovery-service-latest
         if: github.event_name != 'pull_request'
         env:
+          PLATFORM: linux/amd64,linux/arm64
           PUSH: "true"
         run: |
           make image-discovery-service TAG=latest

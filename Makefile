@@ -1,6 +1,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2024-01-12T14:05:03Z by kres 0e666ea-dirty.
+# Generated on 2024-01-22T17:51:41Z by kres latest.
 
 # common variables
 
@@ -88,6 +88,23 @@ To create a builder instance, run:
 
 	docker buildx create --name local --use
 
+If running builds that needs to be cached aggresively create a builder instance with the following:
+
+	docker buildx create --name local --use --config=config.toml
+
+config.toml contents:
+
+[worker.oci]
+  gc = true
+  gckeepstorage = 50000
+
+  [[worker.oci.gcpolicy]]
+    keepBytes = 10737418240
+    keepDuration = 604800
+    filters = [ "type==source.local", "type==exec.cachemount", "type==source.git.checkout"]
+  [[worker.oci.gcpolicy]]
+    all = true
+    keepBytes = 53687091200
 
 If you already have a compatible builder instance, you may use that instead.
 
@@ -167,8 +184,15 @@ $(ARTIFACTS)/discovery-service-linux-amd64:
 .PHONY: discovery-service-linux-amd64
 discovery-service-linux-amd64: $(ARTIFACTS)/discovery-service-linux-amd64  ## Builds executable for discovery-service-linux-amd64.
 
+.PHONY: $(ARTIFACTS)/discovery-service-linux-arm64
+$(ARTIFACTS)/discovery-service-linux-arm64:
+	@$(MAKE) local-discovery-service-linux-arm64 DEST=$(ARTIFACTS)
+
+.PHONY: discovery-service-linux-arm64
+discovery-service-linux-arm64: $(ARTIFACTS)/discovery-service-linux-arm64  ## Builds executable for discovery-service-linux-arm64.
+
 .PHONY: discovery-service
-discovery-service: discovery-service-linux-amd64  ## Builds executables for discovery-service.
+discovery-service: discovery-service-linux-amd64 discovery-service-linux-arm64  ## Builds executables for discovery-service.
 
 .PHONY: lint-markdown
 lint-markdown:  ## Runs markdownlint.
