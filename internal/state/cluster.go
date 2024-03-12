@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Sidero Labs, Inc.
+// Copyright (c) 2024 Sidero Labs, Inc.
 //
 // Use of this software is governed by the Business Source License
 // included in the LICENSE file.
@@ -142,6 +142,7 @@ func (cluster *Cluster) GarbageCollect(now time.Time) (removedAffiliates int, em
 
 		if remove {
 			delete(cluster.affiliates, id)
+
 			removedAffiliates++
 		}
 

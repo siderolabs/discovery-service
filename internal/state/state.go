@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Sidero Labs, Inc.
+// Copyright (c) 2024 Sidero Labs, Inc.
 //
 // Use of this software is governed by the Business Source License
 // included in the LICENSE file.
@@ -8,16 +8,16 @@ package state
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	prom "github.com/prometheus/client_golang/prometheus"
+	"github.com/siderolabs/gen/containers"
 	"go.uber.org/zap"
 )
 
 // State keeps the discovery service state.
 type State struct { //nolint:govet
-	clusters sync.Map
+	clusters containers.SyncMap[string, *Cluster]
 	logger   *zap.Logger
 
 	mClustersDesc      *prom.Desc
@@ -70,27 +70,28 @@ func NewState(logger *zap.Logger) *State {
 
 // GetCluster returns cluster by ID, creating it if needed.
 func (state *State) GetCluster(id string) *Cluster {
-	if v, ok := state.clusters.Load(id); ok {
-		return v.(*Cluster) //nolint:forcetypeassert
+	if cluster, ok := state.clusters.Load(id); ok {
+		return cluster
 	}
 
-	v, loaded := state.clusters.LoadOrStore(id, NewCluster(id))
+	cluster, loaded := state.clusters.LoadOrStore(id, NewCluster(id))
 	if !loaded {
 		state.logger.Debug("cluster created", zap.String("cluster_id", id))
 	}
 
-	return v.(*Cluster) //nolint:forcetypeassert
+	return cluster
 }
 
 // GarbageCollect recursively each cluster, and remove empty clusters.
 func (state *State) GarbageCollect(now time.Time) (removedClusters, removedAffiliates int) {
-	state.clusters.Range(func(key, value interface{}) bool {
-		cluster := value.(*Cluster) //nolint:errcheck,forcetypeassert
+	state.clusters.Range(func(key string, cluster *Cluster) bool {
 		ra, empty := cluster.GarbageCollect(now)
 		removedAffiliates += ra
+
 		if empty {
 			state.clusters.Delete(key)
-			state.logger.Debug("cluster removed", zap.String("cluster_id", key.(string))) //nolint:forcetypeassert
+			state.logger.Debug("cluster removed", zap.String("cluster_id", key))
+
 			removedClusters++
 		}
 
@@ -136,10 +137,8 @@ func (state *State) RunGC(ctx context.Context, logger *zap.Logger, interval time
 }
 
 func (state *State) stats() (clusters, affiliates, endpoints, subscriptions int) {
-	state.clusters.Range(func(key, value interface{}) bool {
+	state.clusters.Range(func(_ string, cluster *Cluster) bool {
 		clusters++
-
-		cluster := value.(*Cluster) //nolint:errcheck,forcetypeassert
 
 		a, e, s := cluster.stats()
 		affiliates += a

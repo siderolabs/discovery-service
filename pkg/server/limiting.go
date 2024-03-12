@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Sidero Labs, Inc.
+// Copyright (c) 2024 Sidero Labs, Inc.
 //
 // Use of this software is governed by the Business Source License
 // included in the LICENSE file.
@@ -7,9 +7,7 @@ package server
 
 import (
 	"context"
-	"net/netip"
 
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -18,7 +16,7 @@ import (
 )
 
 func pause(ctx context.Context, limiter *limiter.IPRateLimiter) error {
-	iPAddr := extractIPAddressFromTags(ctx)
+	iPAddr := PeerAddress(ctx)
 	if !IsZero(iPAddr) {
 		limit := limiter.Get(iPAddr)
 
@@ -33,7 +31,7 @@ func pause(ctx context.Context, limiter *limiter.IPRateLimiter) error {
 
 // RateLimitUnaryServerInterceptor limits Unary PRCs from an IPAdress.
 func RateLimitUnaryServerInterceptor(limiter *limiter.IPRateLimiter) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+	return func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 		err = pause(ctx, limiter)
 		if err != nil {
 			return resp, err
@@ -45,7 +43,7 @@ func RateLimitUnaryServerInterceptor(limiter *limiter.IPRateLimiter) grpc.UnaryS
 
 // RateLimitStreamServerInterceptor limits Stream PRCs from an IPAdress.
 func RateLimitStreamServerInterceptor(limiter *limiter.IPRateLimiter) grpc.StreamServerInterceptor {
-	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	return func(srv interface{}, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		ctx := ss.Context()
 
 		err := pause(ctx, limiter)
@@ -55,17 +53,4 @@ func RateLimitStreamServerInterceptor(limiter *limiter.IPRateLimiter) grpc.Strea
 
 		return handler(srv, ss)
 	}
-}
-
-func extractIPAddressFromTags(ctx context.Context) netip.Addr {
-	if tags := grpc_ctxtags.Extract(ctx); tags != nil {
-		values := tags.Values()
-		if addrV, ok := values["peer.address"]; ok {
-			if addr, ok := addrV.(netip.Addr); ok {
-				return addr
-			}
-		}
-	}
-
-	return netip.Addr{}
 }

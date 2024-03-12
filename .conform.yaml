@@ -1,37 +1,48 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2024-01-22T17:51:41Z by kres latest.
+# Generated on 2024-03-12T11:40:32Z by kres latest.
 
----
 policies:
-- type: commit
-  spec:
-    dco: true
-    gpg:
-      required: true
-      identity:
-        gitHubOrganization: siderolabs
-    spellcheck:
-      locale: US
-    maximumOfOneCommit: true
-    header:
-      length: 89
-      imperative: true
-      case: lower
-      invalidLastCharacters: .
-    body:
-      required: true
-    conventional:
-      types: ["chore","docs","perf","refactor","style","test","release"]
-      scopes: [".*"]
-- type: license
-  spec:
-    skipPaths:
-      - .git/
-      - testdata/
-    includeSuffixes:
-      - .go
-    excludeSuffixes:
-      - .pb.go
-      - .pb.gw.go
-    header: "// Copyright (c) 2021 Sidero Labs, Inc.\u000A//\u000A// Use of this software is governed by the Business Source License\u000A// included in the LICENSE file.\u000A"
+  - type: commit
+    spec:
+      dco: true
+      gpg:
+        required: true
+        identity:
+          gitHubOrganization: siderolabs
+      spellcheck:
+        locale: US
+      maximumOfOneCommit: true
+      header:
+        length: 89
+        imperative: true
+        case: lower
+        invalidLastCharacters: .
+      body:
+        required: true
+      conventional:
+        types:
+          - chore
+          - docs
+          - perf
+          - refactor
+          - style
+          - test
+          - release
+        scopes:
+          - .*
+  - type: license
+    spec:
+      skipPaths:
+        - .git/
+        - testdata/
+      includeSuffixes:
+        - .go
+      excludeSuffixes:
+        - .pb.go
+        - .pb.gw.go
+      header: |
+        // Copyright (c) 2024 Sidero Labs, Inc.
+        //
+        // Use of this software is governed by the Business Source License
+        // included in the LICENSE file.

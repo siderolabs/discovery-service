@@ -21,17 +21,18 @@ spec:
 ---
 kind: common.Repository
 spec:
-  license:
-    id: BSL-1.1
-    params:
-      Licensor: Sidero Labs, Inc.
-      LicensedWork: Discovery Service
-      Copyright: (c) 2021 Sidero Labs, Inc.
-      ChangeDate: "2025-10-28"
-      ChangeLicense: Mozilla Public License, version 2.0
-      EnterpriseLink: https://www.siderolabs.com/contact/
-    header: |
-      // Copyright (c) 2021 Sidero Labs, Inc.
-      //
-      // Use of this software is governed by the Business Source License
-      // included in the LICENSE file.
+  licenses:
+    - enabled: true
+      id: BSL-1.1
+      params:
+        Licensor: Sidero Labs, Inc.
+        LicensedWork: Discovery Service
+        Copyright: (c) 2024 Sidero Labs, Inc.
+        ChangeDate: "2028-03-12"
+        ChangeLicense: Mozilla Public License, version 2.0
+        EnterpriseLink: https://www.siderolabs.com/contact/
+      header: |
+        // Copyright (c) 2024 Sidero Labs, Inc.
+        //
+        // Use of this software is governed by the Business Source License
+        // included in the LICENSE file.

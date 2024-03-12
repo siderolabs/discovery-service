@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Sidero Labs, Inc.
+// Copyright (c) 2024 Sidero Labs, Inc.
 //
 // Use of this software is governed by the Business Source License
 // included in the LICENSE file.
@@ -273,12 +273,12 @@ func TestClusterTooManyAffiliates(t *testing.T) {
 	cluster := state.NewCluster("cluster3")
 
 	for i := 0; i < limits.ClusterAffiliatesMax; i++ {
-		assert.NoError(t, cluster.WithAffiliate(fmt.Sprintf("af%d", i), func(affiliate *state.Affiliate) error {
+		assert.NoError(t, cluster.WithAffiliate(fmt.Sprintf("af%d", i), func(*state.Affiliate) error {
 			return nil
 		}))
 	}
 
-	err := cluster.WithAffiliate("af", func(affiliate *state.Affiliate) error {
+	err := cluster.WithAffiliate("af", func(*state.Affiliate) error {
 		return nil
 	})
 	require.Error(t, err)

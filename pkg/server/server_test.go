@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Sidero Labs, Inc.
+// Copyright (c) 2024 Sidero Labs, Inc.
 //
 // Use of this software is governed by the Business Source License
 // included in the LICENSE file.
@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	prom "github.com/prometheus/client_golang/prometheus"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/siderolabs/discovery-api/api/v1alpha1/server/pb"
@@ -92,13 +91,11 @@ func setupServer(t *testing.T, rateLimit rate.Limit, redirectEndpoint string) *t
 
 	testServer.serverOptions = []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
-			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
-			server.AddPeerAddressUnaryServerInterceptor(),
+			server.AddLoggingFieldsUnaryServerInterceptor(),
 			server.RateLimitUnaryServerInterceptor(limiter),
 		),
 		grpc.ChainStreamInterceptor(
-			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
-			server.AddPeerAddressStreamServerInterceptor(),
+			server.AddLoggingFieldsStreamServerInterceptor(),
 			server.RateLimitStreamServerInterceptor(limiter),
 		),
 	}

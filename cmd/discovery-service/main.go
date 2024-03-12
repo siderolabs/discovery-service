@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Sidero Labs, Inc.
+// Copyright (c) 2024 Sidero Labs, Inc.
 //
 // Use of this software is governed by the Business Source License
 // included in the LICENSE file.
@@ -19,10 +19,9 @@ import (
 	"syscall"
 	"time"
 
-	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/siderolabs/discovery-api/api/v1alpha1/server/pb"
@@ -31,6 +30,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 
 	"github.com/siderolabs/discovery-service/internal/landing"
@@ -78,7 +78,6 @@ func main() {
 
 	if devMode {
 		logger, err = zap.NewDevelopment()
-
 		if err != nil {
 			log.Fatalln("failed to initialize development logger:", err)
 		}
@@ -111,40 +110,80 @@ func recoveryHandler(logger *zap.Logger) grpc_recovery.RecoveryHandlerFunc {
 	}
 }
 
+func interceptorLogger(l *zap.Logger) logging.Logger {
+	return logging.LoggerFunc(func(_ context.Context, lvl logging.Level, msg string, fields ...any) {
+		f := make([]zap.Field, 0, len(fields)/2)
+
+		for i := 0; i < len(fields); i += 2 {
+			key := fields[i].(string) //nolint:forcetypeassert,errcheck
+			value := fields[i+1]
+
+			switch v := value.(type) {
+			case string:
+				f = append(f, zap.String(key, v))
+			case int:
+				f = append(f, zap.Int(key, v))
+			case bool:
+				f = append(f, zap.Bool(key, v))
+			default:
+				f = append(f, zap.Any(key, v))
+			}
+		}
+
+		logger := l.WithOptions(zap.AddCallerSkip(1)).With(f...)
+
+		switch lvl {
+		case logging.LevelDebug:
+			logger.Debug(msg)
+		case logging.LevelInfo:
+			logger.Info(msg)
+		case logging.LevelWarn:
+			logger.Warn(msg)
+		case logging.LevelError:
+			logger.Error(msg)
+		default:
+			panic(fmt.Sprintf("unknown level %v", lvl))
+		}
+	})
+}
+
 func run(ctx context.Context, logger *zap.Logger) error {
 	logger.Info("service starting")
 
 	defer logger.Info("service shut down")
 
-	// Recovery is installed as the first middleware in the chain to handle panics (via defer and recover()) in all subsequent middlewares.
-
-	// Logging is installed as the first middleware (even before recovery middleware) in the chain
-	// so that request in the form it was received and status sent on the wire is logged (error/success).
-	// It also tracks the whole duration of the request, including other middleware overhead.
-	grpc_zap.ReplaceGrpcLoggerV2(logger)
-
 	recoveryOpt := grpc_recovery.WithRecoveryHandler(recoveryHandler(logger))
 
 	limiter := limiter.NewIPRateLimiter(limits.IPRateRequestsPerSecondMax, limits.IPRateBurstSizeMax)
 
+	metrics := grpc_prometheus.NewServerMetrics(
+		grpc_prometheus.WithServerHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets([]float64{0.01, 0.1, 0.25, 0.5, 1.0, 2.5})),
+	)
+
+	loggingOpts := []logging.Option{
+		logging.WithLogOnEvents(logging.StartCall, logging.FinishCall),
+		logging.WithFieldsFromContext(logging.ExtractFields),
+	}
+
 	//nolint:contextcheck
 	serverOptions := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
-			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
-			server.AddPeerAddressUnaryServerInterceptor(),
+			server.AddLoggingFieldsUnaryServerInterceptor(),
+			logging.UnaryServerInterceptor(interceptorLogger(logger), loggingOpts...),
 			server.RateLimitUnaryServerInterceptor(limiter),
-			grpc_zap.UnaryServerInterceptor(logger),
-			grpc_prometheus.UnaryServerInterceptor,
+			metrics.UnaryServerInterceptor(),
 			grpc_recovery.UnaryServerInterceptor(recoveryOpt),
 		),
 		grpc.ChainStreamInterceptor(
-			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(server.FieldExtractor)),
-			server.AddPeerAddressStreamServerInterceptor(),
+			server.AddLoggingFieldsStreamServerInterceptor(),
 			server.RateLimitStreamServerInterceptor(limiter),
-			grpc_zap.StreamServerInterceptor(logger),
-			grpc_prometheus.StreamServerInterceptor,
+			logging.StreamServerInterceptor(interceptorLogger(logger), loggingOpts...),
+			metrics.StreamServerInterceptor(),
 			grpc_recovery.StreamServerInterceptor(recoveryOpt),
 		),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime: 10 * time.Second,
+		}),
 	}
 
 	state := state.NewState(logger)
@@ -166,10 +205,11 @@ func run(ctx context.Context, logger *zap.Logger) error {
 	s := grpc.NewServer(serverOptions...)
 	pb.RegisterClusterServer(s, srv)
 
-	// TODO(aleksi): tweak buckets once we know the actual distribution
-	buckets := []float64{0.01, 0.1, 0.25, 0.5, 1.0, 2.5}
-	grpc_prometheus.EnableHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets(buckets))
-	grpc_prometheus.Register(s)
+	metrics.InitializeMetrics(s)
+
+	if err = prom.Register(metrics); err != nil {
+		return fmt.Errorf("failed to register metrics: %w", err)
+	}
 
 	var metricsMux http.ServeMux
 
