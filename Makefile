@@ -1,6 +1,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2024-03-12T11:34:19Z by kres latest.
+# Generated on 2024-05-06T21:15:17Z by kres d15226e.
 
 # common variables
 
@@ -9,6 +9,7 @@ TAG := $(shell git describe --tag --always --dirty --match v[0-9]\*)
 ABBREV_TAG := $(shell git describe --tags >/dev/null 2>/dev/null && git describe --tag --always --match v[0-9]\* --abbrev=0 || echo 'undefined')
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 ARTIFACTS := _out
+IMAGE_TAG ?= $(TAG)
 WITH_DEBUG ?= false
 WITH_RACE ?= false
 REGISTRY ?= ghcr.io
@@ -19,10 +20,10 @@ GRPC_GO_VERSION ?= 1.3.0
 GRPC_GATEWAY_VERSION ?= 2.19.1
 VTPROTOBUF_VERSION ?= 0.6.0
 DEEPCOPY_VERSION ?= v0.5.6
-GOLANGCILINT_VERSION ?= v1.56.2
+GOLANGCILINT_VERSION ?= v1.57.2
 GOFUMPT_VERSION ?= v0.6.0
-GO_VERSION ?= 1.22.1
-GOIMPORTS_VERSION ?= v0.19.0
+GO_VERSION ?= 1.22.2
+GOIMPORTS_VERSION ?= v0.20.0
 GO_BUILDFLAGS ?=
 GO_LDFLAGS ?=
 CGO_ENABLED ?= 0
@@ -110,7 +111,7 @@ If you already have a compatible builder instance, you may use that instead.
 ## Artifacts
 
 All artifacts will be output to ./$(ARTIFACTS). Images will be tagged with the
-registry "$(REGISTRY)", username "$(USERNAME)", and a dynamic tag (e.g. $(IMAGE):$(TAG)).
+registry "$(REGISTRY)", username "$(USERNAME)", and a dynamic tag (e.g. $(IMAGE):$(IMAGE_TAG)).
 The registry and username can be overridden by exporting REGISTRY, and USERNAME
 respectively.
 
@@ -172,10 +173,6 @@ unit-tests:  ## Performs unit tests
 unit-tests-race:  ## Performs unit tests with race detection enabled.
 	@$(MAKE) target-$@
 
-.PHONY: coverage
-coverage:  ## Upload coverage data to codecov.io.
-	bash -c "bash <(curl -s https://codecov.io/bash) -f $(ARTIFACTS)/coverage-unit-tests.txt -X fix"
-
 .PHONY: $(ARTIFACTS)/discovery-service-linux-amd64
 $(ARTIFACTS)/discovery-service-linux-amd64:
 	@$(MAKE) local-discovery-service-linux-amd64 DEST=$(ARTIFACTS)
@@ -202,7 +199,7 @@ lint: lint-golangci-lint lint-gofumpt lint-govulncheck lint-goimports lint-markd
 
 .PHONY: image-discovery-service
 image-discovery-service:  ## Builds image for discovery-service.
-	@$(MAKE) target-$@ TARGET_ARGS="--tag=$(REGISTRY)/$(USERNAME)/discovery-service:$(TAG)"
+	@$(MAKE) target-$@ TARGET_ARGS="--tag=$(REGISTRY)/$(USERNAME)/discovery-service:$(IMAGE_TAG)"
 
 .PHONY: rekres
 rekres:

@@ -21,17 +21,16 @@ func TestAffiliateMutations(t *testing.T) {
 	now := time.Now()
 
 	affiliate := state.NewAffiliate("id1")
-
 	affiliate.ClearChanged()
 	assert.False(t, affiliate.IsChanged())
 
 	affiliate.Update([]byte("data"), now.Add(time.Minute))
 
 	assert.Equal(t, &state.AffiliateExport{
-		ID:        "id1",
-		Data:      []byte("data"),
-		Endpoints: [][]byte{},
-	}, affiliate.Export())
+		ID:      "id1",
+		Data:    []byte("data"),
+		Changed: true,
+	}, resetAffiliateExpirations(affiliate.Export()))
 
 	assert.True(t, affiliate.IsChanged())
 
@@ -40,10 +39,10 @@ func TestAffiliateMutations(t *testing.T) {
 	affiliate.Update([]byte("data1"), now.Add(time.Minute))
 
 	assert.Equal(t, &state.AffiliateExport{
-		ID:        "id1",
-		Data:      []byte("data1"),
-		Endpoints: [][]byte{},
-	}, affiliate.Export())
+		ID:      "id1",
+		Data:    []byte("data1"),
+		Changed: true,
+	}, resetAffiliateExpirations(affiliate.Export()))
 
 	assert.True(t, affiliate.IsChanged())
 
@@ -55,10 +54,14 @@ func TestAffiliateMutations(t *testing.T) {
 	}, now.Add(time.Minute)))
 
 	assert.Equal(t, &state.AffiliateExport{
-		ID:        "id1",
-		Data:      []byte("data1"),
-		Endpoints: [][]byte{[]byte("e1"), []byte("e2")},
-	}, affiliate.Export())
+		ID:   "id1",
+		Data: []byte("data1"),
+		Endpoints: []*state.EndpointExport{
+			{Data: []byte("e1")},
+			{Data: []byte("e2")},
+		},
+		Changed: true,
+	}, resetAffiliateExpirations(affiliate.Export()))
 
 	assert.True(t, affiliate.IsChanged())
 	affiliate.ClearChanged()
@@ -75,10 +78,15 @@ func TestAffiliateMutations(t *testing.T) {
 	}, now.Add(3*time.Minute)))
 
 	assert.Equal(t, &state.AffiliateExport{
-		ID:        "id1",
-		Data:      []byte("data1"),
-		Endpoints: [][]byte{[]byte("e1"), []byte("e2"), []byte("e3")},
-	}, affiliate.Export())
+		ID:   "id1",
+		Data: []byte("data1"),
+		Endpoints: []*state.EndpointExport{
+			{Data: []byte("e1")},
+			{Data: []byte("e2")},
+			{Data: []byte("e3")},
+		},
+		Changed: true,
+	}, resetAffiliateExpirations(affiliate.Export()))
 
 	assert.True(t, affiliate.IsChanged())
 
@@ -91,10 +99,14 @@ func TestAffiliateMutations(t *testing.T) {
 	assert.True(t, changed)
 
 	assert.Equal(t, &state.AffiliateExport{
-		ID:        "id1",
-		Data:      []byte("data1"),
-		Endpoints: [][]byte{[]byte("e1"), []byte("e3")},
-	}, affiliate.Export())
+		ID:   "id1",
+		Data: []byte("data1"),
+		Endpoints: []*state.EndpointExport{
+			{Data: []byte("e1")},
+			{Data: []byte("e3")},
+		},
+		Changed: true,
+	}, resetAffiliateExpirations(affiliate.Export()))
 
 	remove, changed = affiliate.GarbageCollect(now.Add(4 * time.Minute))
 	assert.True(t, remove)
@@ -106,7 +118,7 @@ func TestAffiliateTooManyEndpoints(t *testing.T) {
 
 	affiliate := state.NewAffiliate("id1")
 
-	for i := 0; i < limits.AffiliateEndpointsMax; i++ {
+	for i := range limits.AffiliateEndpointsMax {
 		assert.NoError(t, affiliate.MergeEndpoints([][]byte{[]byte(fmt.Sprintf("endpoint%d", i))}, now))
 	}
 
@@ -114,4 +126,21 @@ func TestAffiliateTooManyEndpoints(t *testing.T) {
 	require.Error(t, err)
 
 	assert.ErrorIs(t, err, state.ErrTooManyEndpoints)
+}
+
+// resetAffiliatesExpirations resets the expiration fields of the affiliate exports and their endpoints.
+//
+// This is used to assert the exports while ignoring the expiration fields.
+func resetAffiliateExpirations(export *state.AffiliateExport) *state.AffiliateExport {
+	if export == nil {
+		return nil
+	}
+
+	export.Expiration = time.Time{}
+
+	for _, endpoint := range export.Endpoints {
+		endpoint.Expiration = time.Time{}
+	}
+
+	return export
 }

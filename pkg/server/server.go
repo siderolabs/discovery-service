@@ -13,6 +13,7 @@ import (
 
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/siderolabs/discovery-api/api/v1alpha1/server/pb"
+	"github.com/siderolabs/gen/xslices"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -156,7 +157,7 @@ func (srv *ClusterServer) List(_ context.Context, req *pb.ListRequest) (*pb.List
 		resp.Affiliates = append(resp.Affiliates, &pb.Affiliate{
 			Id:        affiliate.ID,
 			Data:      affiliate.Data,
-			Endpoints: affiliate.Endpoints,
+			Endpoints: xslices.Map(affiliate.Endpoints, func(endpoint *state.EndpointExport) []byte { return endpoint.Data }),
 		})
 	}
 
@@ -182,7 +183,7 @@ func (srv *ClusterServer) Watch(req *pb.WatchRequest, server pb.Cluster_WatchSer
 			&pb.Affiliate{
 				Id:        affiliate.ID,
 				Data:      affiliate.Data,
-				Endpoints: affiliate.Endpoints,
+				Endpoints: xslices.Map(affiliate.Endpoints, func(endpoint *state.EndpointExport) []byte { return endpoint.Data }),
 			})
 	}
 
@@ -217,7 +218,7 @@ func (srv *ClusterServer) Watch(req *pb.WatchRequest, server pb.Cluster_WatchSer
 					{
 						Id:        notification.Affiliate.ID,
 						Data:      notification.Affiliate.Data,
-						Endpoints: notification.Affiliate.Endpoints,
+						Endpoints: xslices.Map(notification.Affiliate.Endpoints, func(endpoint *state.EndpointExport) []byte { return endpoint.Data }),
 					},
 				}
 			}

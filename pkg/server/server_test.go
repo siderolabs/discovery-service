@@ -407,7 +407,7 @@ func TestValidation(t *testing.T) {
 	t.Run("AffiliateUpdateTooMany", func(t *testing.T) {
 		t.Parallel()
 
-		for i := 0; i < limits.ClusterAffiliatesMax; i++ {
+		for i := range limits.ClusterAffiliatesMax {
 			_, err := client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
 				ClusterId:   "fatcluster",
 				AffiliateId: fmt.Sprintf("af%d", i),
@@ -428,7 +428,7 @@ func TestValidation(t *testing.T) {
 	t.Run("AffiliateUpdateTooManyEndpoints", func(t *testing.T) {
 		t.Parallel()
 
-		for i := 0; i < limits.AffiliateEndpointsMax; i++ {
+		for i := range limits.AffiliateEndpointsMax {
 			_, err := client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
 				ClusterId:          "smallcluster",
 				AffiliateId:        "af",
@@ -514,7 +514,7 @@ func testHitRateLimit(client pb.ClusterClient, ip string) func(t *testing.T) {
 
 		ctx = metadata.AppendToOutgoingContext(ctx, "X-Real-IP", ip)
 
-		for i := 0; i < limits.IPRateBurstSizeMax; i++ {
+		for range limits.IPRateBurstSizeMax {
 			_, err := client.Hello(ctx, &pb.HelloRequest{
 				ClusterId:     "fake",
 				ClientVersion: "v0.12.0",

@@ -27,7 +27,7 @@ func TestClusterMutations(t *testing.T) {
 	assert.Zero(t, removedAffiliates)
 	assert.True(t, empty)
 
-	assert.Len(t, cluster.List(), 0)
+	assert.Len(t, resetAffiliatesExpirations(cluster.List()), 0)
 
 	assert.NoError(t, cluster.WithAffiliate("af1", func(affiliate *state.Affiliate) error {
 		affiliate.Update([]byte("data"), now.Add(time.Minute))
@@ -35,12 +35,12 @@ func TestClusterMutations(t *testing.T) {
 		return nil
 	}))
 
-	assert.Len(t, cluster.List(), 1)
+	assert.Len(t, resetAffiliatesExpirations(cluster.List()), 1)
 
 	updates := make(chan *state.Notification, 1)
 
 	snapshot, subscription := cluster.Subscribe(updates)
-	defer subscription.Close()
+	t.Cleanup(subscription.Close)
 
 	assert.Len(t, snapshot, 1)
 
@@ -50,22 +50,24 @@ func TestClusterMutations(t *testing.T) {
 		return nil
 	}))
 
-	assert.Len(t, cluster.List(), 1)
+	assert.Len(t, resetAffiliatesExpirations(cluster.List()), 1)
 	assert.Equal(t, []*state.AffiliateExport{
 		{
-			ID:        "af1",
-			Data:      []byte("data1"),
-			Endpoints: [][]byte{},
+			ID:      "af1",
+			Data:    []byte("data1"),
+			Changed: true,
 		},
-	}, cluster.List())
+	}, resetAffiliatesExpirations(cluster.List()))
 
 	select {
 	case notification := <-updates:
+		resetAffiliateExpirations(notification.Affiliate)
+
 		assert.Equal(t, "af1", notification.AffiliateID)
 		assert.Equal(t, &state.AffiliateExport{
-			ID:        "af1",
-			Data:      []byte("data1"),
-			Endpoints: [][]byte{},
+			ID:      "af1",
+			Data:    []byte("data1"),
+			Changed: true,
 		}, notification.Affiliate)
 	case <-time.After(time.Second):
 		assert.Fail(t, "no notification")
@@ -77,30 +79,32 @@ func TestClusterMutations(t *testing.T) {
 		return nil
 	}))
 
-	assert.Len(t, cluster.List(), 2)
+	assert.Len(t, resetAffiliatesExpirations(cluster.List()), 2)
 
-	list := cluster.List()
+	list := resetAffiliatesExpirations(cluster.List())
 	sort.Slice(list, func(i, j int) bool { return list[i].ID < list[j].ID })
 	assert.Equal(t, []*state.AffiliateExport{
 		{
-			ID:        "af1",
-			Data:      []byte("data1"),
-			Endpoints: [][]byte{},
+			ID:      "af1",
+			Data:    []byte("data1"),
+			Changed: true,
 		},
 		{
-			ID:        "af2",
-			Data:      []byte("data2"),
-			Endpoints: [][]byte{},
+			ID:      "af2",
+			Data:    []byte("data2"),
+			Changed: true,
 		},
 	}, list)
 
 	select {
 	case notification := <-updates:
+		resetAffiliateExpirations(notification.Affiliate)
+
 		assert.Equal(t, "af2", notification.AffiliateID)
 		assert.Equal(t, &state.AffiliateExport{
-			ID:        "af2",
-			Data:      []byte("data2"),
-			Endpoints: [][]byte{},
+			ID:      "af2",
+			Data:    []byte("data2"),
+			Changed: true,
 		}, notification.Affiliate)
 	case <-time.After(time.Second):
 		assert.Fail(t, "no notification")
@@ -108,14 +112,14 @@ func TestClusterMutations(t *testing.T) {
 
 	cluster.DeleteAffiliate("af1")
 
-	assert.Len(t, cluster.List(), 1)
+	assert.Len(t, resetAffiliatesExpirations(cluster.List()), 1)
 	assert.Equal(t, []*state.AffiliateExport{
 		{
-			ID:        "af2",
-			Data:      []byte("data2"),
-			Endpoints: [][]byte{},
+			ID:      "af2",
+			Data:    []byte("data2"),
+			Changed: true,
 		},
-	}, cluster.List())
+	}, resetAffiliatesExpirations(cluster.List()))
 
 	select {
 	case notification := <-updates:
@@ -175,7 +179,7 @@ func TestClusterSubscriptions(t *testing.T) {
 		snapshot, liveSubscribers[i] = cluster.Subscribe(channels[i])
 		assert.Empty(t, snapshot)
 
-		defer liveSubscribers[i].Close()
+		t.Cleanup(liveSubscribers[i].Close)
 	}
 
 	for i := range deadSubscribers {
@@ -227,6 +231,8 @@ func TestClusterSubscriptions(t *testing.T) {
 	assertNotification := func(ch <-chan *state.Notification, expected *state.Notification) {
 		select {
 		case notification := <-ch:
+			resetAffiliateExpirations(notification.Affiliate)
+
 			assert.Equal(t, expected, notification)
 		default:
 			assert.Fail(t, "no message")
@@ -237,27 +243,27 @@ func TestClusterSubscriptions(t *testing.T) {
 		assertNotification(ch, &state.Notification{
 			AffiliateID: "af1",
 			Affiliate: &state.AffiliateExport{
-				ID:        "af1",
-				Data:      []byte("data1"),
-				Endpoints: [][]byte{},
+				ID:      "af1",
+				Data:    []byte("data1"),
+				Changed: true,
 			},
 		})
 
 		assertNotification(ch, &state.Notification{
 			AffiliateID: "af2",
 			Affiliate: &state.AffiliateExport{
-				ID:        "af2",
-				Data:      []byte("data2"),
-				Endpoints: [][]byte{},
+				ID:      "af2",
+				Data:    []byte("data2"),
+				Changed: true,
 			},
 		})
 
 		assertNotification(ch, &state.Notification{
 			AffiliateID: "af2",
 			Affiliate: &state.AffiliateExport{
-				ID:        "af2",
-				Data:      []byte("data2_1"),
-				Endpoints: [][]byte{},
+				ID:      "af2",
+				Data:    []byte("data2_1"),
+				Changed: true,
 			},
 		})
 
@@ -272,7 +278,7 @@ func TestClusterTooManyAffiliates(t *testing.T) {
 
 	cluster := state.NewCluster("cluster3")
 
-	for i := 0; i < limits.ClusterAffiliatesMax; i++ {
+	for i := range limits.ClusterAffiliatesMax {
 		assert.NoError(t, cluster.WithAffiliate(fmt.Sprintf("af%d", i), func(*state.Affiliate) error {
 			return nil
 		}))
@@ -283,4 +289,12 @@ func TestClusterTooManyAffiliates(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.ErrorIs(t, err, state.ErrTooManyAffiliates)
+}
+
+func resetAffiliatesExpirations(export []*state.AffiliateExport) []*state.AffiliateExport {
+	for _, affiliate := range export {
+		resetAffiliateExpirations(affiliate)
+	}
+
+	return export
 }

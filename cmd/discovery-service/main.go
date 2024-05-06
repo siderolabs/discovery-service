@@ -37,6 +37,7 @@ import (
 	"github.com/siderolabs/discovery-service/internal/limiter"
 	_ "github.com/siderolabs/discovery-service/internal/proto"
 	"github.com/siderolabs/discovery-service/internal/state"
+	"github.com/siderolabs/discovery-service/internal/state/storage"
 	"github.com/siderolabs/discovery-service/pkg/limits"
 	"github.com/siderolabs/discovery-service/pkg/server"
 )
@@ -49,6 +50,7 @@ var (
 	devMode          = false
 	gcInterval       = time.Minute
 	redirectEndpoint = ""
+	storagePath      = "/var/discovery-service/bolt.db"
 )
 
 func init() {
@@ -58,6 +60,7 @@ func init() {
 	flag.BoolVar(&devMode, "debug", devMode, "enable debug mode")
 	flag.DurationVar(&gcInterval, "gc-interval", gcInterval, "garbage collection interval")
 	flag.StringVar(&redirectEndpoint, "redirect-endpoint", redirectEndpoint, "redirect all clients to a new endpoint (gRPC endpoint, e.g. 'example.com:443'")
+	flag.StringVar(&storagePath, "storage-path", storagePath, "path to the storage file")
 
 	if debug.Enabled {
 		flag.StringVar(&debugAddr, "debug-addr", debugAddr, "debug (pprof, trace, expvar) listen addr")
@@ -188,6 +191,18 @@ func run(ctx context.Context, logger *zap.Logger) error {
 
 	state := state.NewState(logger)
 	prom.MustRegister(state)
+
+	stateStorage := storage.New(storagePath, state, logger.With(zap.String("component", "storage")))
+
+	if err := stateStorage.LoadAll(); err != nil {
+		logger.Warn("failed to load state", zap.Error(err))
+	}
+
+	defer func() {
+		if err := stateStorage.SaveAll(); err != nil {
+			logger.Warn("failed to save state", zap.Error(err))
+		}
+	}()
 
 	srv := server.NewClusterServer(state, ctx.Done(), redirectEndpoint)
 	prom.MustRegister(srv)

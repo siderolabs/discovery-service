@@ -16,17 +16,16 @@ import (
 )
 
 // State keeps the discovery service state.
-type State struct { //nolint:govet
-	clusters containers.SyncMap[string, *Cluster]
-	logger   *zap.Logger
-
+type State struct {
+	mGCRuns            prom.Counter
+	mGCClusters        prom.Counter
+	mGCAffiliates      prom.Counter
+	logger             *zap.Logger
 	mClustersDesc      *prom.Desc
 	mAffiliatesDesc    *prom.Desc
 	mEndpointsDesc     *prom.Desc
 	mSubscriptionsDesc *prom.Desc
-	mGCRuns            prom.Counter
-	mGCClusters        prom.Counter
-	mGCAffiliates      prom.Counter
+	clusters           containers.SyncMap[string, *Cluster]
 }
 
 // NewState create new instance of State.
@@ -80,6 +79,50 @@ func (state *State) GetCluster(id string) *Cluster {
 	}
 
 	return cluster
+}
+
+// ExportClusters exports all clusters from the state.
+func (state *State) ExportClusters() []*ClusterExport {
+	var result []*ClusterExport
+
+	state.clusters.Range(func(_ string, cluster *Cluster) bool {
+		result = append(result, cluster.Export())
+
+		return true
+	})
+
+	return result
+}
+
+// ImportClusters imports the given clusters into the state.
+func (state *State) ImportClusters(clusters []*ClusterExport) {
+	for _, cluster := range clusters {
+		newCluster := &Cluster{
+			id:         cluster.ID,
+			affiliates: make(map[string]*Affiliate, len(cluster.Affiliates)),
+		}
+
+		for _, affiliate := range cluster.Affiliates {
+			newAffiliate := &Affiliate{
+				id:         affiliate.ID,
+				expiration: affiliate.Expiration,
+				data:       affiliate.Data,
+				endpoints:  make([]Endpoint, 0, len(affiliate.Endpoints)),
+				changed:    affiliate.Changed,
+			}
+
+			for _, endpoint := range affiliate.Endpoints {
+				newAffiliate.endpoints = append(newAffiliate.endpoints, Endpoint{
+					data:       endpoint.Data,
+					expiration: endpoint.Expiration,
+				})
+			}
+
+			newCluster.affiliates[affiliate.ID] = newAffiliate
+		}
+
+		state.clusters.Store(newCluster.id, newCluster)
+	}
 }
 
 // GarbageCollect recursively each cluster, and remove empty clusters.
