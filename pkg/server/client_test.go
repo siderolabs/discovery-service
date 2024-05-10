@@ -406,8 +406,6 @@ func clusterSimulator(t *testing.T, endpoint string, logger *zap.Logger, numAffi
 	eg, ctx := errgroup.WithContext(ctx)
 
 	for i := range affiliates {
-		i := i
-
 		eg.Go(func() error {
 			return affiliates[i].Run(ctx, logger, notifyCh[i])
 		})
@@ -446,7 +444,7 @@ func clusterSimulator(t *testing.T, endpoint string, logger *zap.Logger, numAffi
 
 		expected := make(map[int]struct{})
 
-		for i := 0; i < numAffiliates; i++ {
+		for i := range numAffiliates {
 			if i != affiliateID {
 				expected[i] = struct{}{}
 			}
@@ -493,7 +491,7 @@ func clusterSimulator(t *testing.T, endpoint string, logger *zap.Logger, numAffi
 	// eventually all affiliates should see discovered state
 	const NumAttempts = 50 // 50 * 100ms = 5s
 
-	for j := 0; j < NumAttempts; j++ {
+	for j := range NumAttempts {
 		matches := true
 
 		for i := range affiliates {

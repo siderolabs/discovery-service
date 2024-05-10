@@ -1,4 +1,9 @@
 ---
+kind: auto.CommandConfig
+name: snapshot-decoder
+spec:
+  disableImage: true
+---
 kind: common.Image
 name: image-discovery-service
 spec:
@@ -14,6 +19,15 @@ spec:
     linux-arm64:
       GOOS: linux
       GOARCH: arm64
+---
+kind: golang.Generate
+spec:
+  baseSpecPath: /api
+  vtProtobufEnabled: true
+  specs:
+    - source: api/storage/storage.proto
+      subdirectory: storage
+      genGateway: false
 ---
 kind: service.CodeCov
 spec:

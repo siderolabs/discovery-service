@@ -272,7 +272,7 @@ func TestClusterTooManyAffiliates(t *testing.T) {
 
 	cluster := state.NewCluster("cluster3")
 
-	for i := 0; i < limits.ClusterAffiliatesMax; i++ {
+	for i := range limits.ClusterAffiliatesMax {
 		assert.NoError(t, cluster.WithAffiliate(fmt.Sprintf("af%d", i), func(*state.Affiliate) error {
 			return nil
 		}))

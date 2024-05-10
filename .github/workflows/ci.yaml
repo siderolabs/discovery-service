@@ -1,6 +1,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2024-03-12T11:34:19Z by kres latest.
+# Generated on 2024-05-21T10:07:54Z by kres 0290180.
 
 name: default
 concurrency:
@@ -29,15 +29,6 @@ jobs:
       - self-hosted
       - generic
     if: (!startsWith(github.head_ref, 'renovate/') && !startsWith(github.head_ref, 'dependabot/'))
-    services:
-      buildkitd:
-        image: moby/buildkit:v0.12.5
-        options: --privileged
-        ports:
-          - 1234:1234
-        volumes:
-          - /var/lib/buildkit/${{ github.repository }}:/var/lib/buildkit
-          - /usr/etc/buildkit/buildkitd.toml:/etc/buildkit/buildkitd.toml
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -45,11 +36,12 @@ jobs:
         run: |
           git fetch --prune --unshallow
       - name: Set up Docker Buildx
+        id: setup-buildx
         uses: docker/setup-buildx-action@v3
         with:
           driver: remote
-          endpoint: tcp://127.0.0.1:1234
-        timeout-minutes: 1
+          endpoint: tcp://buildkit-amd64.ci.svc.cluster.local:1234
+        timeout-minutes: 10
       - name: base
         run: |
           make base
@@ -60,8 +52,11 @@ jobs:
         run: |
           make unit-tests-race
       - name: coverage
-        run: |
-          make coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: _out/coverage-unit-tests.txt
+          token: ${{ secrets.CODECOV_TOKEN }}
+        timeout-minutes: 3
       - name: discovery-service
         run: |
           make discovery-service
@@ -86,17 +81,20 @@ jobs:
         run: |
           make image-discovery-service
       - name: push-discovery-service-latest
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
           PLATFORM: linux/amd64,linux/arm64
           PUSH: "true"
         run: |
-          make image-discovery-service TAG=latest
+          make image-discovery-service IMAGE_TAG=latest
+      - name: snapshot-decoder
+        run: |
+          make snapshot-decoder
       - name: Generate Checksums
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          sha256sum _out/discovery-service-* > _out/sha256sum.txt
-          sha512sum _out/discovery-service-* > _out/sha512sum.txt
+          sha256sum _out/discovery-service-* _out/snapshot-decoder-* > _out/sha256sum.txt
+          sha512sum _out/discovery-service-* _out/snapshot-decoder-* > _out/sha512sum.txt
       - name: release-notes
         if: startsWith(github.ref, 'refs/tags/')
         run: |
@@ -109,4 +107,5 @@ jobs:
           draft: "true"
           files: |-
             _out/discovery-service-*
+            _out/snapshot-decoder-*
             _out/sha*.txt

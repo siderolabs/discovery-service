@@ -106,7 +106,7 @@ func TestAffiliateTooManyEndpoints(t *testing.T) {
 
 	affiliate := state.NewAffiliate("id1")
 
-	for i := 0; i < limits.AffiliateEndpointsMax; i++ {
+	for i := range limits.AffiliateEndpointsMax {
 		assert.NoError(t, affiliate.MergeEndpoints([][]byte{[]byte(fmt.Sprintf("endpoint%d", i))}, now))
 	}
 

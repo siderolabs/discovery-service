@@ -22,6 +22,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
+	"github.com/jonboulle/clockwork"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/siderolabs/discovery-api/api/v1alpha1/server/pb"
@@ -37,6 +38,7 @@ import (
 	"github.com/siderolabs/discovery-service/internal/limiter"
 	_ "github.com/siderolabs/discovery-service/internal/proto"
 	"github.com/siderolabs/discovery-service/internal/state"
+	"github.com/siderolabs/discovery-service/internal/state/storage"
 	"github.com/siderolabs/discovery-service/pkg/limits"
 	"github.com/siderolabs/discovery-service/pkg/server"
 )
@@ -49,6 +51,9 @@ var (
 	devMode          = false
 	gcInterval       = time.Minute
 	redirectEndpoint = ""
+	snapshotsEnabled = true
+	snapshotPath     = "/var/discovery-service/state.binpb"
+	snapshotInterval = 10 * time.Minute
 )
 
 func init() {
@@ -58,6 +63,9 @@ func init() {
 	flag.BoolVar(&devMode, "debug", devMode, "enable debug mode")
 	flag.DurationVar(&gcInterval, "gc-interval", gcInterval, "garbage collection interval")
 	flag.StringVar(&redirectEndpoint, "redirect-endpoint", redirectEndpoint, "redirect all clients to a new endpoint (gRPC endpoint, e.g. 'example.com:443'")
+	flag.BoolVar(&snapshotsEnabled, "snapshots-enabled", snapshotsEnabled, "enable snapshots")
+	flag.StringVar(&snapshotPath, "snapshot-path", snapshotPath, "path to the snapshot file")
+	flag.DurationVar(&snapshotInterval, "snapshot-interval", snapshotInterval, "interval to save the snapshot")
 
 	if debug.Enabled {
 		flag.StringVar(&debugAddr, "debug-addr", debugAddr, "debug (pprof, trace, expvar) listen addr")
@@ -189,6 +197,19 @@ func run(ctx context.Context, logger *zap.Logger) error {
 	state := state.NewState(logger)
 	prom.MustRegister(state)
 
+	var stateStorage *storage.Storage
+
+	if snapshotsEnabled {
+		stateStorage = storage.New(snapshotPath, state, logger)
+		prom.MustRegister(stateStorage)
+
+		if err := stateStorage.Load(); err != nil {
+			logger.Warn("failed to load state from storage", zap.Error(err))
+		}
+	} else {
+		logger.Info("snapshots are disabled")
+	}
+
 	srv := server.NewClusterServer(state, ctx.Done(), redirectEndpoint)
 	prom.MustRegister(srv)
 
@@ -225,6 +246,12 @@ func run(ctx context.Context, logger *zap.Logger) error {
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
+
+	if snapshotsEnabled {
+		eg.Go(func() error {
+			return stateStorage.Start(ctx, clockwork.NewRealClock(), snapshotInterval)
+		})
+	}
 
 	eg.Go(func() error {
 		logger.Info("gRPC server starting", zap.Stringer("address", lis.Addr()))
