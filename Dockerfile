@@ -2,7 +2,7 @@
 
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2024-05-21T10:07:54Z by kres 0290180.
+# Generated on 2024-05-28T00:03:10Z by kres bcb280a.
 
 ARG TOOLCHAIN
 
@@ -13,7 +13,7 @@ FROM ghcr.io/siderolabs/fhs:v1.7.0 AS image-fhs
 # runs markdownlint
 FROM docker.io/node:22.2.0-alpine3.19 AS lint-markdown
 WORKDIR /src
-RUN npm i -g markdownlint-cli@0.40.0
+RUN npm i -g markdownlint-cli@0.41.0
 RUN npm i sentences-per-line@0.2.1
 COPY .markdownlint.json .
 COPY ./README.md ./README.md
@@ -24,7 +24,7 @@ FROM scratch AS proto-specs
 ADD api/storage/storage.proto /api/storage/
 
 # base toolchain image
-FROM ${TOOLCHAIN} AS toolchain
+FROM --platform=${BUILDPLATFORM} ${TOOLCHAIN} AS toolchain
 RUN apk --update --no-cache add bash curl build-base protoc protobuf-dev
 
 # build tools

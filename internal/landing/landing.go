@@ -8,8 +8,8 @@ package landing
 
 import (
 	"embed"
-	"fmt"
 	"html/template"
+	"io"
 	"io/fs"
 	"net/http"
 	"net/url"
@@ -64,7 +64,7 @@ func Handler(state *state.State, logger *zap.Logger) http.Handler {
 	mux.HandleFunc("/inspect", func(w http.ResponseWriter, r *http.Request) {
 		if err := InspectHandler(w, r, state); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprint(w, "Oops, try again")
+			io.WriteString(w, "Oops, try again") //nolint:errcheck
 			logger.Error("failed to return the page:", zap.Error(err))
 		}
 	})

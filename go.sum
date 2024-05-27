@@ -40,8 +40,8 @@ github.com/siderolabs/discovery-api v0.1.4 h1:2fMEFSMiWaD1zDiBDY5md8VxItvL1rDQRS
 github.com/siderolabs/discovery-api v0.1.4/go.mod h1:kaBy+G42v2xd/uAF/NIe383sjNTBE2AhxPTyi9SZI0s=
 github.com/siderolabs/discovery-client v0.1.8 h1:8WhJiNyVmjZ0F+tSfeaDyQ04n02lRK2dh/CvWp+zlnY=
 github.com/siderolabs/discovery-client v0.1.8/go.mod h1:djZDsGuXOclDfMfur5mYfzFO1xasnIIL6ejyReOsFL8=
-github.com/siderolabs/gen v0.4.8 h1:VNpbmDLhkXp7qcSEkKk1Ee7vU2afs3xvHrWLGR2UuiY=
-github.com/siderolabs/gen v0.4.8/go.mod h1:7ROKVHHB68R3Amrd4a1ZXz/oMrXWF3Mg3lSEgnkJY5c=
+github.com/siderolabs/gen v0.5.0 h1:Afdjx+zuZDf53eH5DB+E+T2JeCwBXGinV66A6osLgQI=
+github.com/siderolabs/gen v0.5.0/go.mod h1:1GUMBNliW98Xeq8GPQeVMYqQE09LFItE8enR3wgMh3Q=
 github.com/siderolabs/go-debug v0.3.0 h1:C8t7jbac5Va2eYu9QRXXEGsy3Vz5xOEVo0TDwVJH268=
 github.com/siderolabs/go-debug v0.3.0/go.mod h1:DonqzIQOm3+qof020meFwJ2gXI5Jv/x4Dj27FyUW4aE=
 github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
