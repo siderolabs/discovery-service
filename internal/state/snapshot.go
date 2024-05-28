@@ -6,6 +6,7 @@
 package state
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/siderolabs/gen/xslices"
@@ -23,7 +24,7 @@ func (state *State) ExportClusterSnapshots(f func(snapshot *storagepb.ClusterSna
 	// reuse the same snapshotin each iteration
 	clusterSnapshot := &storagepb.ClusterSnapshot{}
 
-	state.clusters.Range(func(_ string, cluster *Cluster) bool {
+	state.clusters.Enumerate(func(_ string, cluster *Cluster) bool {
 		snapshotCluster(cluster, clusterSnapshot)
 
 		err = f(clusterSnapshot)
@@ -50,7 +51,10 @@ func (state *State) ImportClusterSnapshots(f func() (*storagepb.ClusterSnapshot,
 
 		cluster := clusterFromSnapshot(clusterSnapshot)
 
-		state.clusters.Store(cluster.id, cluster)
+		_, loaded := state.clusters.LoadOrStore(cluster.id, cluster)
+		if loaded {
+			return fmt.Errorf("cluster %q already exists", cluster.id)
+		}
 	}
 
 	return nil

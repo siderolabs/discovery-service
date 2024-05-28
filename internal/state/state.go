@@ -11,13 +11,13 @@ import (
 	"time"
 
 	prom "github.com/prometheus/client_golang/prometheus"
-	"github.com/siderolabs/gen/containers"
+	"github.com/siderolabs/gen/concurrent"
 	"go.uber.org/zap"
 )
 
 // State keeps the discovery service state.
-type State struct { //nolint:govet
-	clusters containers.SyncMap[string, *Cluster]
+type State struct {
+	clusters *concurrent.HashTrieMap[string, *Cluster]
 	logger   *zap.Logger
 
 	mClustersDesc      *prom.Desc
@@ -32,7 +32,8 @@ type State struct { //nolint:govet
 // NewState create new instance of State.
 func NewState(logger *zap.Logger) *State {
 	return &State{
-		logger: logger,
+		clusters: concurrent.NewHashTrieMap[string, *Cluster](),
+		logger:   logger,
 		mClustersDesc: prom.NewDesc(
 			"discovery_state_clusters",
 			"The current number of clusters in the state.",
@@ -84,12 +85,12 @@ func (state *State) GetCluster(id string) *Cluster {
 
 // GarbageCollect recursively each cluster, and remove empty clusters.
 func (state *State) GarbageCollect(now time.Time) (removedClusters, removedAffiliates int) {
-	state.clusters.Range(func(key string, cluster *Cluster) bool {
+	state.clusters.Enumerate(func(key string, cluster *Cluster) bool {
 		ra, empty := cluster.GarbageCollect(now)
 		removedAffiliates += ra
 
 		if empty {
-			state.clusters.Delete(key)
+			state.clusters.CompareAndDelete(key, cluster)
 			state.logger.Debug("cluster removed", zap.String("cluster_id", key))
 
 			removedClusters++
@@ -137,7 +138,7 @@ func (state *State) RunGC(ctx context.Context, logger *zap.Logger, interval time
 }
 
 func (state *State) stats() (clusters, affiliates, endpoints, subscriptions int) {
-	state.clusters.Range(func(_ string, cluster *Cluster) bool {
+	state.clusters.Enumerate(func(_ string, cluster *Cluster) bool {
 		clusters++
 
 		a, e, s := cluster.stats()
