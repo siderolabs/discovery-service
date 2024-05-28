@@ -21,7 +21,7 @@ import (
 func (state *State) ExportClusterSnapshots(f func(snapshot *storagepb.ClusterSnapshot) error) error {
 	var err error
 
-	// reuse the same snapshotin each iteration
+	// reuse the same snapshot in each iteration
 	clusterSnapshot := &storagepb.ClusterSnapshot{}
 
 	state.clusters.Enumerate(func(_ string, cluster *Cluster) bool {
@@ -67,7 +67,10 @@ func snapshotCluster(cluster *Cluster, snapshot *storagepb.ClusterSnapshot) {
 	snapshot.Id = cluster.id
 
 	// reuse the same slice, resize it as needed
-	snapshot.Affiliates = slices.Grow(snapshot.Affiliates, len(cluster.affiliates))
+	if len(cluster.affiliates) > cap(snapshot.Affiliates) {
+		snapshot.Affiliates = slices.Grow(snapshot.Affiliates, len(cluster.affiliates)-len(snapshot.Affiliates))
+	}
+
 	snapshot.Affiliates = snapshot.Affiliates[:len(cluster.affiliates)]
 
 	i := 0
@@ -88,7 +91,10 @@ func snapshotCluster(cluster *Cluster, snapshot *storagepb.ClusterSnapshot) {
 		snapshot.Affiliates[i].Data = affiliate.data
 
 		// reuse the same slice, resize it as needed
-		snapshot.Affiliates[i].Endpoints = slices.Grow(snapshot.Affiliates[i].Endpoints, len(affiliate.endpoints))
+		if len(affiliate.endpoints) > cap(snapshot.Affiliates[i].Endpoints) {
+			snapshot.Affiliates[i].Endpoints = slices.Grow(snapshot.Affiliates[i].Endpoints, len(affiliate.endpoints)-len(snapshot.Affiliates[i].Endpoints))
+		}
+
 		snapshot.Affiliates[i].Endpoints = snapshot.Affiliates[i].Endpoints[:len(affiliate.endpoints)]
 
 		for j, endpoint := range affiliate.endpoints {

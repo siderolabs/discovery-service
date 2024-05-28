@@ -149,6 +149,13 @@ func (storage *Storage) Save() (err error) {
 		}
 	}()
 
+	// never panic, convert it into an error instead
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("save panicked: %v", recovered)
+		}
+	}()
+
 	if err = os.MkdirAll(filepath.Dir(storage.path), 0o755); err != nil {
 		return fmt.Errorf("failed to create directory path: %w", err)
 	}
@@ -192,6 +199,13 @@ func (storage *Storage) Load() (err error) {
 	defer func() {
 		if err != nil {
 			storage.operationsMetric.WithLabelValues(operationLoad, statusError).Inc()
+		}
+	}()
+
+	// never panic, convert it into an error instead
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("load panicked: %v", recovered)
 		}
 	}()
 
@@ -254,7 +268,7 @@ func (storage *Storage) Import(reader io.Reader) (SnapshotStats, error) {
 		}
 
 		if clusterSize > cap(buffer) {
-			buffer = slices.Grow(buffer, clusterSize-cap(buffer))
+			buffer = slices.Grow(buffer, clusterSize)
 		}
 
 		buffer = buffer[:clusterSize]
