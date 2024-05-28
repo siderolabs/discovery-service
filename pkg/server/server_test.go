@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/experimental"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -98,6 +99,10 @@ func setupServer(t *testing.T, rateLimit rate.Limit, redirectEndpoint string) *t
 			server.AddLoggingFieldsStreamServerInterceptor(),
 			server.RateLimitStreamServerInterceptor(limiter),
 		),
+		grpc.SharedWriteBuffer(true),
+		experimental.RecvBufferPool(grpc.NewSharedBufferPool()),
+		grpc.ReadBufferSize(16 * 1024),
+		grpc.WriteBufferSize(16 * 1024),
 	}
 
 	testServer.s = grpc.NewServer(testServer.serverOptions...)
