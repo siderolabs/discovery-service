@@ -182,7 +182,7 @@ func (storage *Storage) Save() (err error) {
 	duration := time.Since(start)
 
 	storage.logger.Info("state saved", zap.Int("clusters", stats.NumClusters), zap.Int("affiliates", stats.NumAffiliates),
-		zap.Int("endpoints", stats.NumEndpoints), zap.Duration("duration", duration))
+		zap.Int("endpoints", stats.NumEndpoints), zap.Duration("duration", duration), zap.Int("size_bytes", stats.Size))
 
 	storage.operationsMetric.WithLabelValues(operationSave, statusSuccess).Inc()
 	storage.lastSnapshotSizeMetric.WithLabelValues(operationSave).Set(float64(stats.Size))
@@ -231,7 +231,7 @@ func (storage *Storage) Load() (err error) {
 	duration := time.Since(start)
 
 	storage.logger.Info("state loaded", zap.Int("clusters", stats.NumClusters), zap.Int("affiliates", stats.NumAffiliates),
-		zap.Int("endpoints", stats.NumEndpoints), zap.Duration("duration", duration))
+		zap.Int("endpoints", stats.NumEndpoints), zap.Duration("duration", duration), zap.Int("size_bytes", stats.Size))
 
 	storage.operationsMetric.WithLabelValues(operationLoad, statusSuccess).Inc()
 	storage.lastSnapshotSizeMetric.WithLabelValues(operationLoad).Set(float64(stats.Size))
