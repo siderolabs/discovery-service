@@ -25,7 +25,7 @@ spec:
   baseSpecPath: /api
   vtProtobufEnabled: true
   specs:
-    - source: api/storage/storage.proto
+    - source: api/storage/discovery.proto
       subdirectory: storage
       genGateway: false
 ---
