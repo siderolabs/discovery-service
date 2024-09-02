@@ -1,6 +1,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2024-05-28T00:03:10Z by kres bcb280a.
+# Generated on 2024-09-02T13:05:25Z by kres b5ca957.
 
 name: default
 concurrency:
@@ -118,8 +118,9 @@ jobs:
       - name: Generate Checksums
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          sha256sum _out/discovery-service-* _out/snapshot-decoder-* > _out/sha256sum.txt
-          sha512sum _out/discovery-service-* _out/snapshot-decoder-* > _out/sha512sum.txt
+          cd _out
+          sha256sum discovery-service-* snapshot-decoder-* > sha256sum.txt
+          sha512sum discovery-service-* snapshot-decoder-* > sha512sum.txt
       - name: release-notes
         if: startsWith(github.ref, 'refs/tags/')
         run: |

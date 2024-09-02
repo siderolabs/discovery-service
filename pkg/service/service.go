@@ -26,7 +26,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/experimental"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 
@@ -97,7 +96,6 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 			MinTime: 10 * time.Second,
 		}),
 		grpc.SharedWriteBuffer(true),
-		experimental.RecvBufferPool(grpc.NewSharedBufferPool()),
 		grpc.ReadBufferSize(16 * 1024),
 		grpc.WriteBufferSize(16 * 1024),
 	}

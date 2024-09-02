@@ -25,7 +25,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/experimental"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -100,7 +99,6 @@ func setupServer(t *testing.T, rateLimit rate.Limit, redirectEndpoint string) *t
 			server.RateLimitStreamServerInterceptor(limiter),
 		),
 		grpc.SharedWriteBuffer(true),
-		experimental.RecvBufferPool(grpc.NewSharedBufferPool()),
 		grpc.ReadBufferSize(16 * 1024),
 		grpc.WriteBufferSize(16 * 1024),
 	}
@@ -146,7 +144,7 @@ func TestServerAPI(t *testing.T) {
 
 	addr := setupServer(t, 5000, "").address
 
-	conn, e := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, e)
 
 	client := pb.NewClusterClient(conn)
@@ -346,7 +344,7 @@ func TestValidation(t *testing.T) {
 
 	addr := setupServer(t, 5000, "").address
 
-	conn, e := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, e)
 
 	client := pb.NewClusterClient(conn)
@@ -541,7 +539,7 @@ func TestServerRateLimit(t *testing.T) {
 
 	addr := setupServer(t, 1, "").address
 
-	conn, e := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, e)
 
 	client := pb.NewClusterClient(conn)
@@ -555,7 +553,7 @@ func TestServerRedirect(t *testing.T) {
 
 	addr := setupServer(t, 1, "new.example.com:443").address
 
-	conn, e := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, e)
 
 	client := pb.NewClusterClient(conn)

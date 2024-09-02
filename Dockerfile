@@ -1,8 +1,8 @@
-# syntax = docker/dockerfile-upstream:1.7.1-labs
+# syntax = docker/dockerfile-upstream:1.9.0-labs
 
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2024-05-30T08:00:54Z by kres f249b6c.
+# Generated on 2024-09-02T13:05:25Z by kres b5ca957.
 
 ARG TOOLCHAIN
 
@@ -11,13 +11,13 @@ FROM ghcr.io/siderolabs/ca-certificates:v1.7.0 AS image-ca-certificates
 FROM ghcr.io/siderolabs/fhs:v1.7.0 AS image-fhs
 
 # runs markdownlint
-FROM docker.io/node:22.2.0-alpine3.19 AS lint-markdown
+FROM docker.io/oven/bun:1.1.26-alpine AS lint-markdown
 WORKDIR /src
-RUN npm i -g markdownlint-cli@0.41.0
-RUN npm i sentences-per-line@0.2.1
+RUN bun i markdownlint-cli@0.41.0 sentences-per-line@0.2.1
 COPY .markdownlint.json .
+COPY ./CHANGELOG.md ./CHANGELOG.md
 COPY ./README.md ./README.md
-RUN markdownlint --ignore "CHANGELOG.md" --ignore "**/node_modules/**" --ignore '**/hack/chglog/**' --rules node_modules/sentences-per-line/index.js .
+RUN bunx markdownlint --ignore "CHANGELOG.md" --ignore "**/node_modules/**" --ignore '**/hack/chglog/**' --rules node_modules/sentences-per-line/index.js .
 
 # collects proto specs
 FROM scratch AS proto-specs
@@ -29,14 +29,14 @@ RUN apk --update --no-cache add bash curl build-base protoc protobuf-dev
 
 # build tools
 FROM --platform=${BUILDPLATFORM} toolchain AS tools
-ENV GO111MODULE on
+ENV GO111MODULE=on
 ARG CGO_ENABLED
-ENV CGO_ENABLED ${CGO_ENABLED}
+ENV CGO_ENABLED=${CGO_ENABLED}
 ARG GOTOOLCHAIN
-ENV GOTOOLCHAIN ${GOTOOLCHAIN}
+ENV GOTOOLCHAIN=${GOTOOLCHAIN}
 ARG GOEXPERIMENT
-ENV GOEXPERIMENT ${GOEXPERIMENT}
-ENV GOPATH /go
+ENV GOEXPERIMENT=${GOEXPERIMENT}
+ENV GOPATH=/go
 ARG GOIMPORTS_VERSION
 RUN --mount=type=cache,target=/root/.cache/go-build --mount=type=cache,target=/go/pkg go install golang.org/x/tools/cmd/goimports@v${GOIMPORTS_VERSION}
 RUN mv /go/bin/goimports /bin
@@ -94,7 +94,7 @@ RUN FILES="$(gofumpt -l .)" && test -z "${FILES}" || (echo -e "Source code is no
 FROM base AS lint-golangci-lint
 WORKDIR /src
 COPY .golangci.yml .
-ENV GOGC 50
+ENV GOGC=50
 RUN golangci-lint config verify --config .golangci.yml
 RUN --mount=type=cache,target=/root/.cache/go-build --mount=type=cache,target=/root/.cache/golangci-lint --mount=type=cache,target=/go/pkg golangci-lint run --config .golangci.yml
 
@@ -183,6 +183,6 @@ ARG TARGETARCH
 COPY --from=discovery-service discovery-service-linux-${TARGETARCH} /discovery-service
 COPY --from=image-fhs / /
 COPY --from=image-ca-certificates / /
-LABEL org.opencontainers.image.source https://github.com/siderolabs/discovery-service
+LABEL org.opencontainers.image.source=https://github.com/siderolabs/discovery-service
 ENTRYPOINT ["/discovery-service"]
 
