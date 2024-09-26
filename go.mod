@@ -10,12 +10,11 @@ require (
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10
 	github.com/prometheus/client_golang v1.20.4
 	github.com/siderolabs/discovery-api v0.1.4
-	github.com/siderolabs/discovery-client v0.1.9
+	github.com/siderolabs/discovery-client v0.1.10
 	github.com/siderolabs/gen v0.5.0
 	github.com/siderolabs/go-debug v0.4.0
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/zap v1.27.0
-	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 	golang.org/x/net v0.28.0
 	golang.org/x/sync v0.8.0
 	golang.org/x/time v0.6.0

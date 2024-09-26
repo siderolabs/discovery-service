@@ -60,7 +60,7 @@ func TestClient(t *testing.T) {
 			ClusterID:   clusterID,
 			AffiliateID: affiliate1,
 			TTL:         time.Minute,
-			Insecure:    true,
+			TLSConfig:   GetClientTLSConfig(t),
 		})
 		require.NoError(t, err)
 
@@ -70,7 +70,7 @@ func TestClient(t *testing.T) {
 			ClusterID:   clusterID,
 			AffiliateID: affiliate2,
 			TTL:         time.Minute,
-			Insecure:    true,
+			TLSConfig:   GetClientTLSConfig(t),
 		})
 		require.NoError(t, err)
 
@@ -239,7 +239,7 @@ func TestClient(t *testing.T) {
 			ClusterID:   clusterID,
 			AffiliateID: affiliate1,
 			TTL:         time.Second,
-			Insecure:    true,
+			TLSConfig:   GetClientTLSConfig(t),
 		})
 		require.NoError(t, err)
 
@@ -249,7 +249,7 @@ func TestClient(t *testing.T) {
 			ClusterID:   clusterID,
 			AffiliateID: affiliate2,
 			TTL:         time.Minute,
-			Insecure:    true,
+			TLSConfig:   GetClientTLSConfig(t),
 		})
 		require.NoError(t, err)
 
@@ -392,7 +392,7 @@ func clusterSimulator(t *testing.T, endpoint string, logger *zap.Logger, numAffi
 			AffiliateID:   fmt.Sprintf("affiliate-%d", i),
 			ClientVersion: "v0.0.1",
 			TTL:           10 * time.Second,
-			Insecure:      true,
+			TLSConfig:     GetClientTLSConfig(t),
 		})
 		require.NoError(t, err)
 	}
@@ -557,7 +557,7 @@ func TestClientRedirect(t *testing.T) {
 		ClusterID:   clusterID,
 		AffiliateID: affiliate1,
 		TTL:         time.Minute,
-		Insecure:    true,
+		TLSConfig:   GetClientTLSConfig(t),
 	})
 	require.NoError(t, err)
 
@@ -567,7 +567,7 @@ func TestClientRedirect(t *testing.T) {
 		ClusterID:   clusterID,
 		AffiliateID: affiliate2,
 		TTL:         time.Minute,
-		Insecure:    true,
+		TLSConfig:   GetClientTLSConfig(t),
 	})
 	require.NoError(t, err)
 

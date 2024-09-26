@@ -33,6 +33,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 
+	"github.com/siderolabs/discovery-service/internal/grpclog"
 	"github.com/siderolabs/discovery-service/internal/landing"
 	"github.com/siderolabs/discovery-service/internal/limiter"
 	"github.com/siderolabs/discovery-service/internal/state"
@@ -83,7 +84,7 @@ func newGRPCServer(ctx context.Context, state *state.State, options Options, log
 	serverOptions := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
 			server.AddLoggingFieldsUnaryServerInterceptor(),
-			logging.UnaryServerInterceptor(interceptorLogger(logger), loggingOpts...),
+			logging.UnaryServerInterceptor(grpclog.Adapter(logger), loggingOpts...),
 			server.RateLimitUnaryServerInterceptor(limiter),
 			metrics.UnaryServerInterceptor(),
 			grpc_recovery.UnaryServerInterceptor(recoveryOpt),
@@ -91,7 +92,7 @@ func newGRPCServer(ctx context.Context, state *state.State, options Options, log
 		grpc.ChainStreamInterceptor(
 			server.AddLoggingFieldsStreamServerInterceptor(),
 			server.RateLimitStreamServerInterceptor(limiter),
-			logging.StreamServerInterceptor(interceptorLogger(logger), loggingOpts...),
+			logging.StreamServerInterceptor(grpclog.Adapter(logger), loggingOpts...),
 			metrics.StreamServerInterceptor(),
 			grpc_recovery.StreamServerInterceptor(recoveryOpt),
 		),
@@ -323,43 +324,6 @@ func recoveryHandler(logger *zap.Logger) grpc_recovery.RecoveryHandlerFunc {
 
 		return status.Errorf(codes.Internal, "%v", p)
 	}
-}
-
-func interceptorLogger(l *zap.Logger) logging.Logger {
-	return logging.LoggerFunc(func(_ context.Context, lvl logging.Level, msg string, fields ...any) {
-		f := make([]zap.Field, 0, len(fields)/2)
-
-		for i := 0; i < len(fields); i += 2 {
-			key := fields[i].(string) //nolint:forcetypeassert,errcheck
-			value := fields[i+1]
-
-			switch v := value.(type) {
-			case string:
-				f = append(f, zap.String(key, v))
-			case int:
-				f = append(f, zap.Int(key, v))
-			case bool:
-				f = append(f, zap.Bool(key, v))
-			default:
-				f = append(f, zap.Any(key, v))
-			}
-		}
-
-		logger := l.WithOptions(zap.AddCallerSkip(1)).With(f...)
-
-		switch lvl {
-		case logging.LevelDebug:
-			logger.Debug(msg)
-		case logging.LevelInfo:
-			logger.Info(msg)
-		case logging.LevelWarn:
-			logger.Warn(msg)
-		case logging.LevelError:
-			logger.Error(msg)
-		default:
-			panic(fmt.Sprintf("unknown level %v", lvl))
-		}
-	})
 }
 
 func unregisterCollectors(registerer prom.Registerer, collectors ...prom.Collector) {

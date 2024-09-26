@@ -11,25 +11,29 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	prom "github.com/prometheus/client_golang/prometheus"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/siderolabs/discovery-api/api/v1alpha1/server/pb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/net/http2"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"github.com/siderolabs/discovery-service/internal/grpclog"
 	"github.com/siderolabs/discovery-service/internal/limiter"
 	_ "github.com/siderolabs/discovery-service/internal/proto"
 	"github.com/siderolabs/discovery-service/internal/state"
@@ -48,6 +52,7 @@ func checkMetrics(t *testing.T, c prom.Collector) {
 type testServer struct { //nolint:govet
 	lis           net.Listener
 	s             *grpc.Server
+	httpServer    *http.Server
 	state         *state.State
 	stopCh        <-chan struct{}
 	serverOptions []grpc.ServerOption
@@ -89,13 +94,20 @@ func setupServer(t *testing.T, rateLimit rate.Limit, redirectEndpoint string) *t
 
 	limiter := limiter.NewIPRateLimiter(rateLimit, limits.IPRateBurstSizeMax)
 
+	loggingOpts := []logging.Option{
+		logging.WithLogOnEvents(logging.StartCall, logging.FinishCall),
+		logging.WithFieldsFromContext(logging.ExtractFields),
+	}
+
 	testServer.serverOptions = []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
 			server.AddLoggingFieldsUnaryServerInterceptor(),
+			logging.UnaryServerInterceptor(grpclog.Adapter(logger), loggingOpts...),
 			server.RateLimitUnaryServerInterceptor(limiter),
 		),
 		grpc.ChainStreamInterceptor(
 			server.AddLoggingFieldsStreamServerInterceptor(),
+			logging.StreamServerInterceptor(grpclog.Adapter(logger), loggingOpts...),
 			server.RateLimitStreamServerInterceptor(limiter),
 		),
 		grpc.SharedWriteBuffer(true),
@@ -106,19 +118,35 @@ func setupServer(t *testing.T, rateLimit rate.Limit, redirectEndpoint string) *t
 	testServer.s = grpc.NewServer(testServer.serverOptions...)
 	pb.RegisterClusterServer(testServer.s, srv)
 
+	testServer.httpServer = &http.Server{
+		Handler:   testServer.s,
+		TLSConfig: GetServerTLSConfig(t),
+	}
+
+	require.NoError(t, http2.ConfigureServer(testServer.httpServer, nil))
+
 	go func() {
-		if stopErr := testServer.s.Serve(testServer.lis); stopErr != nil && !errors.Is(stopErr, grpc.ErrServerStopped) {
-			require.NoError(t, err)
+		if stopErr := testServer.httpServer.ServeTLS(testServer.lis, "", ""); stopErr != nil && !errors.Is(stopErr, http.ErrServerClosed) {
+			assert.NoError(t, stopErr)
 		}
+
+		t.Logf("server stopped")
 	}()
 
-	t.Cleanup(testServer.s.Stop)
+	t.Cleanup(func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+
+		assert.NoError(t, testServer.httpServer.Shutdown(shutdownCtx))
+	})
 
 	return testServer
 }
 
 func (testServer *testServer) restartWithRedirect(t *testing.T, redirectEndpoint string) {
-	testServer.s.Stop()
+	t.Logf("restarting server with redirect to %s", redirectEndpoint)
+
+	assert.NoError(t, testServer.httpServer.Close())
 
 	srv := server.NewClusterServer(testServer.state, testServer.stopCh, redirectEndpoint)
 
@@ -130,13 +158,27 @@ func (testServer *testServer) restartWithRedirect(t *testing.T, redirectEndpoint
 	testServer.lis, err = net.Listen("tcp", testServer.address)
 	require.NoError(t, err)
 
+	testServer.httpServer = &http.Server{
+		Handler:   testServer.s,
+		TLSConfig: GetServerTLSConfig(t),
+	}
+
+	require.NoError(t, http2.ConfigureServer(testServer.httpServer, nil))
+
 	go func() {
-		if stopErr := testServer.s.Serve(testServer.lis); stopErr != nil && !errors.Is(stopErr, grpc.ErrServerStopped) {
-			require.NoError(t, err)
+		if stopErr := testServer.httpServer.ServeTLS(testServer.lis, "", ""); stopErr != nil && !errors.Is(stopErr, http.ErrServerClosed) {
+			assert.NoError(t, stopErr)
 		}
+
+		t.Logf("restarted server stopped")
 	}()
 
-	t.Cleanup(testServer.s.Stop)
+	t.Cleanup(func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+
+		assert.NoError(t, testServer.httpServer.Shutdown(shutdownCtx))
+	})
 }
 
 func TestServerAPI(t *testing.T) {
@@ -144,7 +186,7 @@ func TestServerAPI(t *testing.T) {
 
 	addr := setupServer(t, 5000, "").address
 
-	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(t))))
 	require.NoError(t, e)
 
 	client := pb.NewClusterClient(conn)
@@ -344,7 +386,7 @@ func TestValidation(t *testing.T) {
 
 	addr := setupServer(t, 5000, "").address
 
-	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(t))))
 	require.NoError(t, e)
 
 	client := pb.NewClusterClient(conn)
@@ -539,7 +581,7 @@ func TestServerRateLimit(t *testing.T) {
 
 	addr := setupServer(t, 1, "").address
 
-	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(t))))
 	require.NoError(t, e)
 
 	client := pb.NewClusterClient(conn)
@@ -553,7 +595,7 @@ func TestServerRedirect(t *testing.T) {
 
 	addr := setupServer(t, 1, "new.example.com:443").address
 
-	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(t))))
 	require.NoError(t, e)
 
 	client := pb.NewClusterClient(conn)

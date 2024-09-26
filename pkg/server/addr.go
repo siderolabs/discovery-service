@@ -7,10 +7,8 @@ package server
 
 import (
 	"context"
-	"net"
 	"net/netip"
 
-	"go4.org/netipx"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 )
@@ -38,10 +36,8 @@ func PeerAddress(ctx context.Context) netip.Addr {
 	}
 
 	if peer, ok := peer.FromContext(ctx); ok {
-		if addr, ok := peer.Addr.(*net.TCPAddr); ok {
-			if ip, ok := netipx.FromStdIP(addr.IP); ok {
-				return ip
-			}
+		if addrPort, err := netip.ParseAddrPort(peer.Addr.String()); err == nil {
+			return addrPort.Addr()
 		}
 	}
 
