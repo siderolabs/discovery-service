@@ -8,10 +8,12 @@ package service
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
@@ -23,6 +25,8 @@ import (
 	"github.com/siderolabs/discovery-api/api/v1alpha1/server/pb"
 	"github.com/siderolabs/go-debug"
 	"go.uber.org/zap"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -41,12 +45,15 @@ import (
 type Options struct {
 	MetricsRegisterer prom.Registerer
 
-	LandingAddr      string
-	MetricsAddr      string
-	SnapshotPath     string
-	DebugAddr        string
+	ListenAddr   string
+	LandingAddr  string
+	MetricsAddr  string
+	SnapshotPath string
+	DebugAddr    string
+
+	CertificatePath, KeyPath string
+
 	RedirectEndpoint string
-	ListenAddr       string
 
 	GCInterval       time.Duration
 	SnapshotInterval time.Duration
@@ -55,14 +62,10 @@ type Options struct {
 	DebugServerEnabled   bool
 	MetricsServerEnabled bool
 	SnapshotsEnabled     bool
+	TrustXRealIP         bool
 }
 
-// Run starts the service with the given options.
-func Run(ctx context.Context, options Options, logger *zap.Logger) error {
-	logger.Info("service starting")
-
-	defer logger.Info("service shut down")
-
+func newGRPCServer(ctx context.Context, state *state.State, options Options, logger *zap.Logger) (*grpc.Server, *server.ClusterServer, *limiter.IPRateLimiter, *grpc_prometheus.ServerMetrics) {
 	recoveryOpt := grpc_recovery.WithRecoveryHandler(recoveryHandler(logger))
 
 	limiter := limiter.NewIPRateLimiter(limits.IPRateRequestsPerSecondMax, limits.IPRateBurstSizeMax)
@@ -100,6 +103,25 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 		grpc.WriteBufferSize(16 * 1024),
 	}
 
+	srv := server.NewClusterServer(state, ctx.Done(), options.RedirectEndpoint)
+
+	s := grpc.NewServer(serverOptions...)
+	pb.RegisterClusterServer(s, srv)
+
+	metrics.InitializeMetrics(s)
+
+	return s, srv, limiter, metrics
+}
+
+// Run starts the service with the given options.
+//
+//nolint:gocognit,gocyclo,cyclop
+func Run(ctx context.Context, options Options, logger *zap.Logger) error {
+	logger.Info("service starting")
+	defer logger.Info("service shut down")
+
+	server.TrustXRealIP(options.TrustXRealIP)
+
 	state := state.NewState(logger)
 
 	var stateStorage *storage.Storage
@@ -113,46 +135,59 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 		logger.Info("snapshots are disabled")
 	}
 
-	srv := server.NewClusterServer(state, ctx.Done(), options.RedirectEndpoint)
+	s, srv, limiter, metrics := newGRPCServer(ctx, state, options, logger)
 
 	lis, err := net.Listen("tcp", options.ListenAddr)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
 
-	landingLis, err := net.Listen("tcp", options.LandingAddr)
-	if err != nil {
-		return fmt.Errorf("failed to listen: %w", err)
-	}
-
-	s := grpc.NewServer(serverOptions...)
-	pb.RegisterClusterServer(s, srv)
-
-	metrics.InitializeMetrics(s)
-
-	var (
-		metricsServer http.Server
-		landingServer http.Server
-	)
-
-	if options.MetricsServerEnabled {
-		var metricsMux http.ServeMux
-
-		metricsMux.Handle("/metrics", promhttp.Handler())
-
-		metricsServer = http.Server{
-			Addr:    options.MetricsAddr,
-			Handler: &metricsMux,
-		}
-	}
-
-	if options.LandingServerEnabled {
-		landingServer = http.Server{
-			Handler: landing.Handler(state, logger),
-		}
-	}
+	landingHandler := landing.Handler(state, logger)
 
 	eg, ctx := errgroup.WithContext(ctx)
+
+	var rootHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
+			s.ServeHTTP(w, r)
+		} else {
+			landingHandler.ServeHTTP(w, r)
+		}
+	})
+
+	insecure := options.CertificatePath == "" && options.KeyPath == ""
+
+	if insecure {
+		rootHandler = h2c.NewHandler(rootHandler, &http2.Server{})
+	}
+
+	var tlsConfig *tls.Config
+
+	if !insecure {
+		certLoader := NewDynamicCertificate(options.CertificatePath, options.KeyPath)
+		if err = certLoader.Load(); err != nil {
+			return fmt.Errorf("failed to load certificate: %w", err)
+		}
+
+		eg.Go(func() error {
+			return certLoader.WatchWithRestarts(ctx, logger)
+		})
+
+		tlsConfig = &tls.Config{
+			MinVersion:     tls.VersionTLS12,
+			GetCertificate: certLoader.GetCertificate,
+		}
+	}
+
+	mainServer := &http.Server{
+		ReadHeaderTimeout: 10 * time.Second,
+		Handler:           rootHandler,
+		TLSConfig:         tlsConfig,
+		ErrorLog:          zap.NewStdLog(logger.With(zap.String("server", "http"))),
+	}
+
+	if err = http2.ConfigureServer(mainServer, nil); err != nil {
+		return fmt.Errorf("failed to configure server: %w", err)
+	}
 
 	if options.SnapshotsEnabled {
 		eg.Go(func() error {
@@ -161,9 +196,17 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 	}
 
 	eg.Go(func() error {
-		logger.Info("gRPC server starting", zap.Stringer("address", lis.Addr()))
+		logger.Info("API server starting", zap.Stringer("address", lis.Addr()))
 
-		if serveErr := s.Serve(lis); serveErr != nil {
+		var serveErr error
+
+		if insecure {
+			serveErr = mainServer.Serve(lis)
+		} else {
+			serveErr = mainServer.ServeTLS(lis, "", "")
+		}
+
+		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
 			return fmt.Errorf("failed to serve: %w", serveErr)
 		}
 
@@ -171,6 +214,17 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 	})
 
 	if options.LandingServerEnabled {
+		var landingLis net.Listener
+
+		landingLis, err = net.Listen("tcp", options.LandingAddr)
+		if err != nil {
+			return fmt.Errorf("failed to listen: %w", err)
+		}
+
+		landingServer := http.Server{
+			Handler: landingHandler,
+		}
+
 		eg.Go(func() error {
 			logger.Info("landing server starting", zap.Stringer("address", landingLis.Addr()))
 
@@ -180,9 +234,27 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 
 			return nil
 		})
+
+		eg.Go(func() error {
+			<-ctx.Done()
+
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer shutdownCancel()
+
+			return landingServer.Shutdown(shutdownCtx) //nolint:contextcheck
+		})
 	}
 
 	if options.MetricsServerEnabled {
+		var metricsMux http.ServeMux
+
+		metricsMux.Handle("/metrics", promhttp.Handler())
+
+		metricsServer := http.Server{
+			Addr:    options.MetricsAddr,
+			Handler: &metricsMux,
+		}
+
 		eg.Go(func() error {
 			logger.Info("metrics starting", zap.String("address", metricsServer.Addr))
 
@@ -192,6 +264,15 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 
 			return nil
 		})
+
+		eg.Go(func() error {
+			<-ctx.Done()
+
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer shutdownCancel()
+
+			return metricsServer.Shutdown(shutdownCtx) //nolint:contextcheck
+		})
 	}
 
 	eg.Go(func() error {
@@ -200,17 +281,7 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer shutdownCancel()
 
-		s.GracefulStop()
-
-		if options.LandingServerEnabled {
-			landingServer.Shutdown(ctx) //nolint:errcheck
-		}
-
-		if options.MetricsServerEnabled {
-			metricsServer.Shutdown(shutdownCtx) //nolint:errcheck,contextcheck
-		}
-
-		return nil
+		return mainServer.Shutdown(shutdownCtx) //nolint:contextcheck
 	})
 
 	eg.Go(func() error {

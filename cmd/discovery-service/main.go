@@ -34,18 +34,24 @@ var (
 	snapshotsEnabled = true
 	snapshotPath     = "/var/discovery-service/state.binpb"
 	snapshotInterval = 10 * time.Minute
+	certificatePath  = ""
+	keyPath          = ""
+	trustXRealIP     = true
 )
 
 func init() {
 	flag.StringVar(&listenAddr, "addr", listenAddr, "addr on which to listen")
-	flag.StringVar(&landingAddr, "landing-addr", landingAddr, "addr on which to listen for landing page")
-	flag.StringVar(&metricsAddr, "metrics-addr", metricsAddr, "prometheus metrics listen addr")
+	flag.StringVar(&certificatePath, "certificate-path", certificatePath, "path to the certificate file")
+	flag.StringVar(&keyPath, "key-path", keyPath, "path to the key file")
+	flag.StringVar(&landingAddr, "landing-addr", landingAddr, "addr on which to listen for landing page (set to empty to disable)")
+	flag.StringVar(&metricsAddr, "metrics-addr", metricsAddr, "prometheus metrics listen addr (set to empty to disable)")
 	flag.BoolVar(&devMode, "debug", devMode, "enable debug mode")
 	flag.DurationVar(&gcInterval, "gc-interval", gcInterval, "garbage collection interval")
 	flag.StringVar(&redirectEndpoint, "redirect-endpoint", redirectEndpoint, "redirect all clients to a new endpoint (gRPC endpoint, e.g. 'example.com:443'")
 	flag.BoolVar(&snapshotsEnabled, "snapshots-enabled", snapshotsEnabled, "enable snapshots")
 	flag.StringVar(&snapshotPath, "snapshot-path", snapshotPath, "path to the snapshot file")
 	flag.DurationVar(&snapshotInterval, "snapshot-interval", snapshotInterval, "interval to save the snapshot")
+	flag.BoolVar(&trustXRealIP, "trust-x-real-ip", trustXRealIP, "trust X-Real-IP header")
 
 	if debug.Enabled {
 		flag.StringVar(&debugAddr, "debug-addr", debugAddr, "debug (pprof, trace, expvar) listen addr")
@@ -84,16 +90,21 @@ func main() {
 			ListenAddr:       listenAddr,
 			GCInterval:       gcInterval,
 
-			LandingServerEnabled: true,
+			CertificatePath: certificatePath,
+			KeyPath:         keyPath,
+
+			LandingServerEnabled: landingAddr != "",
 			LandingAddr:          landingAddr,
 
-			DebugServerEnabled: true,
+			DebugServerEnabled: debugAddr != "",
 			DebugAddr:          debugAddr,
 
-			MetricsServerEnabled: true,
+			MetricsServerEnabled: metricsAddr != "",
 			MetricsAddr:          metricsAddr,
 
 			MetricsRegisterer: prometheus.DefaultRegisterer,
+
+			TrustXRealIP: trustXRealIP,
 		}, logger)
 	}); err != nil {
 		logger.Error("service failed", zap.Error(err))

@@ -23,7 +23,7 @@ const (
 
 // IP Rate Limiter.
 const (
-	IPRateRequestsPerSecondMax    = 5
-	IPRateBurstSizeMax            = 30
+	IPRateRequestsPerSecondMax    = 15
+	IPRateBurstSizeMax            = 60
 	IPRateGarbageCollectionPeriod = time.Minute
 )

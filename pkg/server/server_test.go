@@ -569,3 +569,7 @@ func TestServerRedirect(t *testing.T) {
 
 	assert.Equal(t, "new.example.com:443", resp.GetRedirect().GetEndpoint())
 }
+
+func init() {
+	server.TrustXRealIP(true)
+}
