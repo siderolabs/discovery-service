@@ -50,7 +50,7 @@ func AddLoggingFieldsStreamServerInterceptor() grpc.StreamServerInterceptor {
 		ctx := ss.Context()
 
 		wrapped := grpc_middleware.WrapServerStream(ss)
-		wrapped.WrappedContext = logging.InjectFields(ctx, fieldExtractor(ctx, nil))
+		wrapped.WrappedContext = logging.InjectFields(ctx, fieldExtractor(ctx, nil)) //nolint:fatcontext
 
 		return handler(srv, wrapped)
 	}

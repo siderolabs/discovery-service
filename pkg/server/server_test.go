@@ -20,6 +20,7 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/siderolabs/discovery-api/api/v1alpha1/server/pb"
+	_ "github.com/siderolabs/proto-codec/codec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -35,7 +36,6 @@ import (
 
 	"github.com/siderolabs/discovery-service/internal/grpclog"
 	"github.com/siderolabs/discovery-service/internal/limiter"
-	_ "github.com/siderolabs/discovery-service/internal/proto"
 	"github.com/siderolabs/discovery-service/internal/state"
 	"github.com/siderolabs/discovery-service/pkg/limits"
 	"github.com/siderolabs/discovery-service/pkg/server"

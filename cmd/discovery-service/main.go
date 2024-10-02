@@ -17,9 +17,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/siderolabs/go-debug"
+	_ "github.com/siderolabs/proto-codec/codec" // enable vtproto codecV2
 	"go.uber.org/zap"
 
-	_ "github.com/siderolabs/discovery-service/internal/proto"
 	"github.com/siderolabs/discovery-service/pkg/service"
 )
 
