@@ -16,13 +16,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	prom "github.com/prometheus/client_golang/prometheus"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/siderolabs/discovery-api/api/v1alpha1/server/pb"
 	_ "github.com/siderolabs/proto-codec/codec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/net/http2"
 	"golang.org/x/time/rate"
@@ -34,14 +34,13 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"github.com/siderolabs/discovery-service/internal/grpclog"
 	"github.com/siderolabs/discovery-service/internal/limiter"
 	"github.com/siderolabs/discovery-service/internal/state"
 	"github.com/siderolabs/discovery-service/pkg/limits"
 	"github.com/siderolabs/discovery-service/pkg/server"
 )
 
-func checkMetrics(t *testing.T, c prom.Collector) {
+func checkMetrics(t testing.TB, c prom.Collector) {
 	problems, err := promtestutil.CollectAndLint(c)
 	require.NoError(t, err)
 	require.Empty(t, problems)
@@ -60,10 +59,14 @@ type testServer struct { //nolint:govet
 	address string
 }
 
-func setupServer(t *testing.T, rateLimit rate.Limit, redirectEndpoint string) *testServer {
+func setupServer(t testing.TB, rateLimit rate.Limit, redirectEndpoint string) *testServer {
 	t.Helper()
 
-	logger := zaptest.NewLogger(t)
+	return setupServerWithLogger(t, rateLimit, redirectEndpoint, zaptest.NewLogger(t))
+}
+
+func setupServerWithLogger(t testing.TB, rateLimit rate.Limit, redirectEndpoint string, logger *zap.Logger) *testServer {
+	t.Helper()
 
 	testServer := &testServer{}
 
@@ -94,20 +97,13 @@ func setupServer(t *testing.T, rateLimit rate.Limit, redirectEndpoint string) *t
 
 	limiter := limiter.NewIPRateLimiter(rateLimit, limits.IPRateBurstSizeMax)
 
-	loggingOpts := []logging.Option{
-		logging.WithLogOnEvents(logging.StartCall, logging.FinishCall),
-		logging.WithFieldsFromContext(logging.ExtractFields),
-	}
-
 	testServer.serverOptions = []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
-			server.AddLoggingFieldsUnaryServerInterceptor(),
-			logging.UnaryServerInterceptor(grpclog.Adapter(logger), loggingOpts...),
+			server.UnaryRequestLogger(logger),
 			server.RateLimitUnaryServerInterceptor(limiter),
 		),
 		grpc.ChainStreamInterceptor(
-			server.AddLoggingFieldsStreamServerInterceptor(),
-			logging.StreamServerInterceptor(grpclog.Adapter(logger), loggingOpts...),
+			server.StreamRequestLogger(logger),
 			server.RateLimitStreamServerInterceptor(limiter),
 		),
 		grpc.SharedWriteBuffer(true),
@@ -188,6 +184,10 @@ func TestServerAPI(t *testing.T) {
 
 	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(t))))
 	require.NoError(t, e)
+
+	t.Cleanup(func() {
+		assert.NoError(t, conn.Close())
+	})
 
 	client := pb.NewClusterClient(conn)
 
@@ -610,6 +610,51 @@ func TestServerRedirect(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "new.example.com:443", resp.GetRedirect().GetEndpoint())
+}
+
+func BenchmarkViaClient(b *testing.B) {
+	endpoint := setupServerWithLogger(b, 500000, "", zap.NewNop()).address
+
+	conn, e := grpc.NewClient(endpoint,
+		grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(b))),
+	)
+	require.NoError(b, e)
+
+	b.Cleanup(func() {
+		assert.NoError(b, conn.Close())
+	})
+
+	client := pb.NewClusterClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	b.Cleanup(cancel)
+
+	helloReq := &pb.HelloRequest{
+		ClusterId:     "fake",
+		ClientVersion: "v0.12.0",
+	}
+
+	affiliateReq := &pb.AffiliateUpdateRequest{
+		ClusterId:     "fake1",
+		AffiliateId:   "af1",
+		AffiliateData: bytes.Repeat([]byte("a"), 1024),
+		AffiliateEndpoints: [][]byte{
+			[]byte("e1"),
+			[]byte("e2"),
+		},
+		Ttl: durationpb.New(time.Minute),
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for range b.N {
+		_, err := client.Hello(ctx, helloReq)
+		require.NoError(b, err)
+
+		_, err = client.AffiliateUpdate(ctx, affiliateReq)
+		require.NoError(b, err)
+	}
 }
 
 func init() {

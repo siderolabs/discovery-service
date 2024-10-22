@@ -365,7 +365,7 @@ func TestClient(t *testing.T) {
 // clusterSimulator simulates cluster with a number of affiliates discovering each other.
 //
 //nolint:gocognit
-func clusterSimulator(t *testing.T, endpoint string, logger *zap.Logger, numAffiliates int) {
+func clusterSimulator(t testing.TB, endpoint string, logger *zap.Logger, numAffiliates int) {
 	clusterIDBytes := make([]byte, 32)
 	_, err := io.ReadFull(rand.Reader, clusterIDBytes)
 	require.NoError(t, err)

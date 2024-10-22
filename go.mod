@@ -8,19 +8,19 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.1.0
 	github.com/jonboulle/clockwork v0.4.1-0.20231224152657-fc59783b0293
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240917153116-6f2963f01587
-	github.com/prometheus/client_golang v1.20.4
-	github.com/siderolabs/discovery-api v0.1.4
+	github.com/prometheus/client_golang v1.20.5
+	github.com/siderolabs/discovery-api v0.1.5
 	github.com/siderolabs/discovery-client v0.1.10
 	github.com/siderolabs/gen v0.5.0
 	github.com/siderolabs/go-debug v0.4.0
 	github.com/siderolabs/proto-codec v0.1.1
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/net v0.29.0
+	golang.org/x/net v0.30.0
 	golang.org/x/sync v0.8.0
-	golang.org/x/time v0.6.0
+	golang.org/x/time v0.7.0
 	google.golang.org/grpc v1.67.1
-	google.golang.org/protobuf v1.34.2
+	google.golang.org/protobuf v1.35.1
 )
 
 require (
@@ -36,8 +36,8 @@ require (
 	github.com/prometheus/common v0.60.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/sys v0.25.0 // indirect
-	golang.org/x/text v0.18.0 // indirect
+	golang.org/x/sys v0.26.0 // indirect
+	golang.org/x/text v0.19.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240827150818-7e3bb234dfed // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

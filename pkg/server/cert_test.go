@@ -69,7 +69,7 @@ var onceCert = sync.OnceValues(func() (*tls.Certificate, error) {
 	return &cert, nil
 })
 
-func GetServerTLSConfig(t *testing.T) *tls.Config {
+func GetServerTLSConfig(t testing.TB) *tls.Config {
 	t.Helper()
 
 	cert, err := onceCert()
@@ -81,7 +81,7 @@ func GetServerTLSConfig(t *testing.T) *tls.Config {
 	}
 }
 
-func GetClientTLSConfig(t *testing.T) *tls.Config {
+func GetClientTLSConfig(t testing.TB) *tls.Config {
 	t.Helper()
 
 	cert, err := onceCert()

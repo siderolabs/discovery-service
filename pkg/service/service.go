@@ -17,7 +17,6 @@ import (
 	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
-	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	"github.com/jonboulle/clockwork"
 	prom "github.com/prometheus/client_golang/prometheus"
@@ -33,7 +32,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 
-	"github.com/siderolabs/discovery-service/internal/grpclog"
 	"github.com/siderolabs/discovery-service/internal/landing"
 	"github.com/siderolabs/discovery-service/internal/limiter"
 	"github.com/siderolabs/discovery-service/internal/state"
@@ -75,24 +73,17 @@ func newGRPCServer(ctx context.Context, state *state.State, options Options, log
 		grpc_prometheus.WithServerHandlingTimeHistogram(grpc_prometheus.WithHistogramBuckets([]float64{0.01, 0.1, 0.25, 0.5, 1.0, 2.5})),
 	)
 
-	loggingOpts := []logging.Option{
-		logging.WithLogOnEvents(logging.StartCall, logging.FinishCall),
-		logging.WithFieldsFromContext(logging.ExtractFields),
-	}
-
 	//nolint:contextcheck
 	serverOptions := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
-			server.AddLoggingFieldsUnaryServerInterceptor(),
-			logging.UnaryServerInterceptor(grpclog.Adapter(logger), loggingOpts...),
+			server.UnaryRequestLogger(logger),
 			server.RateLimitUnaryServerInterceptor(limiter),
 			metrics.UnaryServerInterceptor(),
 			grpc_recovery.UnaryServerInterceptor(recoveryOpt),
 		),
 		grpc.ChainStreamInterceptor(
-			server.AddLoggingFieldsStreamServerInterceptor(),
+			server.StreamRequestLogger(logger),
 			server.RateLimitStreamServerInterceptor(limiter),
-			logging.StreamServerInterceptor(grpclog.Adapter(logger), loggingOpts...),
 			metrics.StreamServerInterceptor(),
 			grpc_recovery.StreamServerInterceptor(recoveryOpt),
 		),

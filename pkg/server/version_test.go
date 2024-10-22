@@ -24,6 +24,7 @@ func TestParseVersion(t *testing.T) {
 		"v1.8.3":                            "v1.8",
 		"v1.8.3-7-gf7d9f211":                "v1.8-pre",
 		"v1.8.0-beta.1":                     "v1.8-pre",
+		"v1.2":                              "unknown",
 	} {
 		t.Run(v, func(t *testing.T) {
 			t.Parallel()

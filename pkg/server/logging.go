@@ -7,51 +7,95 @@ package server
 
 import (
 	"context"
+	"time"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware/v2"
-	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/grpc/status"
 )
 
-// fieldExtractor prepares tags for logging and tracing out of the request.
-func fieldExtractor(ctx context.Context, req interface{}) logging.Fields {
-	var ret logging.Fields
+func extractFields(req any) []zapcore.Field {
+	var result []zapcore.Field
 
-	if msg, ok := req.(proto.Message); ok {
-		r := msg.ProtoReflect()
-		fields := r.Descriptor().Fields()
+	if msg, ok := req.(interface {
+		GetClusterId() string
+	}); ok {
+		result = append(result, zap.String("cluster_id", msg.GetClusterId()))
+	}
 
-		for _, name := range []string{"cluster_id", "affiliate_id", "client_version"} {
-			if field := fields.ByName(protoreflect.Name(name)); field != nil {
-				ret = append(ret, name, r.Get(field).String())
-			}
+	if msg, ok := req.(interface {
+		GetAffiliateId() string
+	}); ok {
+		result = append(result, zap.String("affiliate_id", msg.GetAffiliateId()))
+	}
+
+	if msg, ok := req.(interface {
+		GetClientVersion() string
+	}); ok {
+		result = append(result, zap.String("client_version", msg.GetClientVersion()))
+	}
+
+	return result
+}
+
+// UnaryRequestLogger returns a new unary server interceptor that logs the requests.
+func UnaryRequestLogger(logger *zap.Logger) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		startTime := time.Now()
+
+		resp, err := handler(ctx, req)
+
+		duration := time.Since(startTime)
+		code := status.Code(err)
+
+		level := zapcore.InfoLevel
+
+		if err != nil {
+			level = zapcore.ErrorLevel
 		}
-	}
 
-	if peerAddress := PeerAddress(ctx); !IsZero(peerAddress) {
-		ret = append(ret, "peer.address", peerAddress.String())
-	}
+		logger.Log(level, info.FullMethod,
+			append(
+				[]zapcore.Field{
+					zap.Duration("duration", duration),
+					zap.Stringer("code", code),
+					zap.Error(err),
+					zap.Stringer("peer.address", PeerAddress(ctx)),
+				},
+				extractFields(req)...,
+			)...,
+		)
 
-	return ret
+		return resp, err
+	}
 }
 
-// AddLoggingFieldsUnaryServerInterceptor sets peer.address for logging.
-func AddLoggingFieldsUnaryServerInterceptor() grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-		return handler(logging.InjectFields(ctx, fieldExtractor(ctx, req)), req)
-	}
-}
-
-// AddLoggingFieldsStreamServerInterceptor sets peer.address for logging.
-func AddLoggingFieldsStreamServerInterceptor() grpc.StreamServerInterceptor {
-	return func(srv interface{}, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+// StreamRequestLogger returns a new stream server interceptor that logs the requests.
+func StreamRequestLogger(logger *zap.Logger) grpc.StreamServerInterceptor {
+	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		ctx := ss.Context()
 
-		wrapped := grpc_middleware.WrapServerStream(ss)
-		wrapped.WrappedContext = logging.InjectFields(ctx, fieldExtractor(ctx, nil)) //nolint:fatcontext
+		startTime := time.Now()
 
-		return handler(srv, wrapped)
+		err := handler(srv, ss)
+
+		duration := time.Since(startTime)
+		code := status.Code(err)
+
+		level := zapcore.InfoLevel
+
+		if err != nil {
+			level = zapcore.ErrorLevel
+		}
+
+		logger.Log(level, info.FullMethod,
+			zap.Duration("duration", duration),
+			zap.Stringer("code", code),
+			zap.Error(err),
+			zap.Stringer("peer.address", PeerAddress(ctx)),
+		)
+
+		return err
 	}
 }

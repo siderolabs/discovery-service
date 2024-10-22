@@ -13,6 +13,7 @@ import (
 
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/siderolabs/discovery-api/api/v1alpha1/server/pb"
+	"github.com/siderolabs/gen/value"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -69,7 +70,7 @@ func (srv *ClusterServer) Hello(ctx context.Context, req *pb.HelloRequest) (*pb.
 
 	resp := &pb.HelloResponse{}
 
-	if peerAddress := PeerAddress(ctx); !IsZero(peerAddress) {
+	if peerAddress := PeerAddress(ctx); !value.IsZero(peerAddress) {
 		resp.ClientIp, _ = peerAddress.MarshalBinary() //nolint:errcheck // never fails
 	}
 

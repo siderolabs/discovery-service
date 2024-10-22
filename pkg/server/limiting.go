@@ -8,6 +8,7 @@ package server
 import (
 	"context"
 
+	"github.com/siderolabs/gen/value"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -17,7 +18,7 @@ import (
 
 func pause(ctx context.Context, limiter *limiter.IPRateLimiter) error {
 	iPAddr := PeerAddress(ctx)
-	if !IsZero(iPAddr) {
+	if !value.IsZero(iPAddr) {
 		limit := limiter.Get(iPAddr)
 
 		err := limit.Wait(ctx)

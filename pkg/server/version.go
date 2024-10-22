@@ -6,22 +6,31 @@
 package server
 
 import (
-	"regexp"
+	"strings"
 )
 
-var vRE = regexp.MustCompile(`^(v\d+\.\d+)(\.\d+)(\-?[^-]*)(.*)$`)
+const unknownVersion = "unknown"
 
 func parseVersion(v string) string {
-	m := vRE.FindAllStringSubmatch(v, -1)
+	ver, suffix, _ := strings.Cut(v, "-")
 
-	if len(m) == 1 && len(m[0]) >= 2 {
-		res := m[0][1]
-		if len(m[0]) >= 3 && m[0][3] != "" {
-			res += "-pre"
-		}
-
-		return res
+	if ver == "" || ver[0] != 'v' {
+		return unknownVersion
 	}
 
-	return "unknown"
+	p1 := strings.IndexByte(ver, '.')
+	if p1 == -1 || p1 > 3 {
+		return unknownVersion
+	}
+
+	p2 := strings.IndexByte(ver[p1+1:], '.')
+	if p2 == -1 || p2 > 3 {
+		return unknownVersion
+	}
+
+	if suffix != "" {
+		return ver[:p1+p2+1] + "-pre"
+	}
+
+	return ver[:p1+p2+1]
 }
