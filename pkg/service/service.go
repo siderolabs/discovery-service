@@ -181,7 +181,7 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 		return fmt.Errorf("failed to configure server: %w", err)
 	}
 
-	if options.SnapshotsEnabled {
+	if stateStorage != nil {
 		eg.Go(func() error {
 			return stateStorage.Start(ctx, clockwork.NewRealClock(), options.SnapshotInterval)
 		})
@@ -295,7 +295,11 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 	}
 
 	if options.MetricsRegisterer != nil {
-		collectors := []prom.Collector{state, srv, metrics, stateStorage}
+		collectors := []prom.Collector{state, srv, metrics}
+
+		if stateStorage != nil {
+			collectors = append(collectors, stateStorage)
+		}
 
 		defer unregisterCollectors(options.MetricsRegisterer, collectors...)
 
@@ -319,20 +323,12 @@ func recoveryHandler(logger *zap.Logger) grpc_recovery.RecoveryHandlerFunc {
 
 func unregisterCollectors(registerer prom.Registerer, collectors ...prom.Collector) {
 	for _, collector := range collectors {
-		if collector == nil {
-			continue
-		}
-
 		registerer.Unregister(collector)
 	}
 }
 
 func registerCollectors(registerer prom.Registerer, collectors ...prom.Collector) (err error) {
 	for _, collector := range collectors {
-		if collector == nil {
-			continue
-		}
-
 		if err = registerer.Register(collector); err != nil {
 			return fmt.Errorf("failed to register collector: %w", err)
 		}
