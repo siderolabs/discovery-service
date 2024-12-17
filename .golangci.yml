@@ -1,6 +1,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2024-05-28T08:54:28Z by kres a914cae.
+# Generated on 2024-12-17T15:34:29Z by kres b9507d6.
 
 # options for analysis running
 run:
@@ -116,7 +116,6 @@ linters:
     - gochecknoglobals
     - gochecknoinits
     - godox
-    - gomnd
     - gomoddirectives
     - gosec
     - inamedparam
@@ -135,6 +134,7 @@ linters:
     - perfsprint # complains about us using fmt.Sprintf in non-performance critical code, updating just kres took too long
     - goimports # same as gci
     - musttag # seems to be broken - goes into imported libraries and reports issues there
+    - exportloopref # WARN The linter 'exportloopref' is deprecated (since v1.60.2) due to: Since Go1.22 (loopvar) this linter is no longer relevant. Replaced by copyloopvar.
 
 issues:
   exclude: [ ]

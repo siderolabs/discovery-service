@@ -19,20 +19,18 @@ import (
 //
 // Implements storage.Snapshotter interface.
 func (state *State) ExportClusterSnapshots(f func(snapshot *storagepb.ClusterSnapshot) error) error {
-	var err error
-
 	// reuse the same snapshot in each iteration
 	clusterSnapshot := &storagepb.ClusterSnapshot{}
 
-	state.clusters.Enumerate(func(_ string, cluster *Cluster) bool {
+	for _, cluster := range state.clusters.All() {
 		snapshotCluster(cluster, clusterSnapshot)
 
-		err = f(clusterSnapshot)
+		if err := f(clusterSnapshot); err != nil {
+			return err
+		}
+	}
 
-		return err == nil
-	})
-
-	return err
+	return nil
 }
 
 // ImportClusterSnapshots imports cluster snapshots by calling the provided function until it returns false.

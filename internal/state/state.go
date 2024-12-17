@@ -85,7 +85,7 @@ func (state *State) GetCluster(id string) *Cluster {
 
 // GarbageCollect recursively each cluster, and remove empty clusters.
 func (state *State) GarbageCollect(now time.Time) (removedClusters, removedAffiliates int) {
-	state.clusters.Enumerate(func(key string, cluster *Cluster) bool {
+	for key, cluster := range state.clusters.All() {
 		ra, empty := cluster.GarbageCollect(now)
 		removedAffiliates += ra
 
@@ -95,9 +95,7 @@ func (state *State) GarbageCollect(now time.Time) (removedClusters, removedAffil
 
 			removedClusters++
 		}
-
-		return true
-	})
+	}
 
 	state.mGCRuns.Inc()
 	state.mGCClusters.Add(float64(removedClusters))
@@ -138,16 +136,14 @@ func (state *State) RunGC(ctx context.Context, logger *zap.Logger, interval time
 }
 
 func (state *State) stats() (clusters, affiliates, endpoints, subscriptions int) {
-	state.clusters.Enumerate(func(_ string, cluster *Cluster) bool {
+	for _, cluster := range state.clusters.All() {
 		clusters++
 
 		a, e, s := cluster.stats()
 		affiliates += a
 		endpoints += e
 		subscriptions += s
-
-		return true
-	})
+	}
 
 	return
 }
