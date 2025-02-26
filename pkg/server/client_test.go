@@ -48,7 +48,7 @@ func TestClient(t *testing.T) {
 		cipher, err := aes.NewCipher(key)
 		require.NoError(t, err)
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
 		affiliate1 := "af_1"
@@ -227,7 +227,7 @@ func TestClient(t *testing.T) {
 		cipher, err := aes.NewCipher(key)
 		require.NoError(t, err)
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
 		affiliate1 := "af_1"
@@ -379,7 +379,7 @@ func clusterSimulator(t testing.TB, endpoint string, logger *zap.Logger, numAffi
 	cipher, err := aes.NewCipher(key)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	affiliates := make([]*client.Client, numAffiliates)
@@ -545,7 +545,7 @@ func TestClientRedirect(t *testing.T) {
 	cipher, err := aes.NewCipher(key)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	affiliate1 := "affiliate_one"

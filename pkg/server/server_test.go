@@ -72,7 +72,7 @@ func setupServerWithLogger(t testing.TB, rateLimit rate.Limit, redirectEndpoint 
 
 	testServer.state = state.NewState(logger)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
 	testServer.stopCh = ctx.Done()
@@ -130,7 +130,7 @@ func setupServerWithLogger(t testing.TB, rateLimit rate.Limit, redirectEndpoint 
 	}()
 
 	t.Cleanup(func() {
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second) //nolint:usetesting
 		defer shutdownCancel()
 
 		assert.NoError(t, testServer.httpServer.Shutdown(shutdownCtx))
@@ -170,7 +170,7 @@ func (testServer *testServer) restartWithRedirect(t *testing.T, redirectEndpoint
 	}()
 
 	t.Cleanup(func() {
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		shutdownCtx, shutdownCancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer shutdownCancel()
 
 		assert.NoError(t, testServer.httpServer.Shutdown(shutdownCtx))
@@ -194,7 +194,7 @@ func TestServerAPI(t *testing.T) {
 	t.Run("Hello", func(t *testing.T) {
 		t.Parallel()
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
 		resp, err := client.Hello(ctx, &pb.HelloRequest{
@@ -210,7 +210,7 @@ func TestServerAPI(t *testing.T) {
 	t.Run("HelloWithRealIP", func(t *testing.T) {
 		t.Parallel()
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
 		ctx = metadata.AppendToOutgoingContext(ctx, "X-Real-IP", "1.2.3.4") // with real IP of client
@@ -227,7 +227,7 @@ func TestServerAPI(t *testing.T) {
 	t.Run("AffiliateUpdate", func(t *testing.T) {
 		t.Parallel()
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
 		_, err := client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
@@ -278,7 +278,7 @@ func TestServerAPI(t *testing.T) {
 	t.Run("AffiliateDelete", func(t *testing.T) {
 		t.Parallel()
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
 		_, err := client.AffiliateDelete(ctx, &pb.AffiliateDeleteRequest{
@@ -311,7 +311,7 @@ func TestServerAPI(t *testing.T) {
 	t.Run("Watch", func(t *testing.T) {
 		t.Parallel()
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 
 		_, err := client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
@@ -391,7 +391,7 @@ func TestValidation(t *testing.T) {
 
 	client := pb.NewClusterClient(conn)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("Hello", func(t *testing.T) {
 		t.Parallel()
@@ -554,7 +554,7 @@ func testHitRateLimit(client pb.ClusterClient, ip string) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Parallel()
 
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 		defer cancel()
 
 		ctx = metadata.AppendToOutgoingContext(ctx, "X-Real-IP", ip)
@@ -600,7 +600,7 @@ func TestServerRedirect(t *testing.T) {
 
 	client := pb.NewClusterClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 	defer cancel()
 
 	resp, err := client.Hello(ctx, &pb.HelloRequest{
@@ -626,7 +626,7 @@ func BenchmarkViaClient(b *testing.B) {
 
 	client := pb.NewClusterClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(b.Context(), 10*time.Second)
 	b.Cleanup(cancel)
 
 	helloReq := &pb.HelloRequest{
