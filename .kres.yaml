@@ -50,3 +50,7 @@ spec:
         //
         // Use of this software is governed by the Business Source License
         // included in the LICENSE file.
+---
+kind: golang.UnitTests
+spec:
+  runFIPS: true

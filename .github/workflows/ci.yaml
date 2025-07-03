@@ -1,6 +1,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2024-12-17T15:34:29Z by kres b9507d6.
+# Generated on 2025-07-03T11:46:36Z by kres b282c9b.
 
 name: default
 concurrency:
@@ -32,7 +32,7 @@ jobs:
     steps:
       - name: gather-system-info
         id: system-info
-        uses: kenchan0130/actions-system-info@v1.3.0
+        uses: kenchan0130/actions-system-info@v1.3.1
         continue-on-error: true
       - name: print-system-info
         run: |
@@ -76,6 +76,9 @@ jobs:
       - name: unit-tests-race
         run: |
           make unit-tests-race
+      - name: unit-tests-fips
+        run: |
+          make unit-tests-fips
       - name: coverage
         uses: codecov/codecov-action@v5
         with:
