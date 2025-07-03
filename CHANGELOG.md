@@ -1,3 +1,40 @@
+## [discovery-service 1.0.11](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.11) (2025-07-03)
+
+Welcome to the v1.0.11 release of discovery-service!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/discovery-service/issues.
+
+### Contributors
+
+* Andrey Smirnov
+
+### Changes
+<details><summary>1 commit</summary>
+<p>
+
+* [`01e232a`](https://github.com/siderolabs/discovery-service/commit/01e232adc32b18d51e66fe25e6876dff7bf0ccfb) fix: pull in new client for FIPS-140-3 compliance
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/fsnotify/fsnotify**                                       v1.8.0 -> v1.9.0
+* **github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus**  v1.0.1 -> v1.1.0
+* **github.com/grpc-ecosystem/go-grpc-middleware/v2**                    v2.3.1 -> v2.3.2
+* **github.com/prometheus/client_golang**                                v1.21.1 -> v1.22.0
+* **github.com/siderolabs/discovery-client**                             v0.1.11 -> v0.1.12
+* **github.com/siderolabs/gen**                                          v0.8.0 -> v0.8.4
+* **golang.org/x/net**                                                   v0.37.0 -> v0.41.0
+* **golang.org/x/sync**                                                  v0.12.0 -> v0.15.0
+* **golang.org/x/time**                                                  v0.11.0 -> v0.12.0
+* **google.golang.org/grpc**                                             v1.71.0 -> v1.73.0
+* **google.golang.org/protobuf**                                         v1.36.5 -> v1.36.6
+
+Previous release can be found at [v1.0.10](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.10)
+
 ## [discovery-service 1.0.10](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.10) (2025-03-14)
 
 Welcome to the v1.0.10 release of discovery-service!
