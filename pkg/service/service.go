@@ -21,6 +21,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	cryptotls "github.com/siderolabs/crypto/tls"
 	"github.com/siderolabs/discovery-api/api/v1alpha1/server/pb"
 	"github.com/siderolabs/go-debug"
 	"go.uber.org/zap"
@@ -129,7 +130,7 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 
 	s, srv, limiter, metrics := newGRPCServer(ctx, state, options, logger)
 
-	lis, err := net.Listen("tcp", options.ListenAddr)
+	lis, err := (&net.ListenConfig{}).Listen(ctx, "tcp", options.ListenAddr)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
@@ -155,7 +156,7 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 	var tlsConfig *tls.Config
 
 	if !insecure {
-		certLoader := NewDynamicCertificate(options.CertificatePath, options.KeyPath)
+		certLoader := cryptotls.NewDynamicCertificate(options.CertificatePath, options.KeyPath)
 		if err = certLoader.Load(); err != nil {
 			return fmt.Errorf("failed to load certificate: %w", err)
 		}
@@ -208,7 +209,7 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 	if options.LandingServerEnabled {
 		var landingLis net.Listener
 
-		landingLis, err = net.Listen("tcp", options.LandingAddr)
+		landingLis, err = (&net.ListenConfig{}).Listen(ctx, "tcp", options.LandingAddr)
 		if err != nil {
 			return fmt.Errorf("failed to listen: %w", err)
 		}

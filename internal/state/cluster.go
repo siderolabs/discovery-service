@@ -103,6 +103,7 @@ func (cluster *Cluster) List() []*AffiliateExport {
 func (cluster *Cluster) Subscribe(ch chan<- *Notification) ([]*AffiliateExport, *Subscription) {
 	cluster.affiliatesMu.Lock()
 	defer cluster.affiliatesMu.Unlock()
+
 	cluster.subscriptionsMu.Lock()
 	defer cluster.subscriptionsMu.Unlock()
 
@@ -159,7 +160,7 @@ func (cluster *Cluster) GarbageCollect(now time.Time) (removedAffiliates int, em
 
 	empty = len(cluster.affiliates) == 0 && subscriptions == 0
 
-	return
+	return removedAffiliates, empty
 }
 
 func (cluster *Cluster) notify(notifications ...*Notification) {
@@ -190,5 +191,5 @@ func (cluster *Cluster) stats() (affiliates, endpoints, subscriptions int) {
 
 	cluster.subscriptionsMu.Unlock()
 
-	return
+	return affiliates, endpoints, subscriptions
 }

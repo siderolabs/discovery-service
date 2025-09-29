@@ -90,7 +90,7 @@ func setupServerWithLogger(t testing.TB, rateLimit rate.Limit, redirectEndpoint 
 
 	var err error
 
-	testServer.lis, err = net.Listen("tcp", "localhost:0")
+	testServer.lis, err = (&net.ListenConfig{}).Listen(ctx, "tcp", "localhost:0")
 	require.NoError(t, err)
 
 	testServer.address = testServer.lis.Addr().String()
@@ -151,7 +151,7 @@ func (testServer *testServer) restartWithRedirect(t *testing.T, redirectEndpoint
 
 	var err error
 
-	testServer.lis, err = net.Listen("tcp", testServer.address)
+	testServer.lis, err = (&net.ListenConfig{}).Listen(t.Context(), "tcp", testServer.address)
 	require.NoError(t, err)
 
 	testServer.httpServer = &http.Server{
@@ -182,7 +182,7 @@ func TestServerAPI(t *testing.T) {
 
 	addr := setupServer(t, 5000, "").address
 
-	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(t))))
+	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(t)())))
 	require.NoError(t, e)
 
 	t.Cleanup(func() {
@@ -386,7 +386,7 @@ func TestValidation(t *testing.T) {
 
 	addr := setupServer(t, 5000, "").address
 
-	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(t))))
+	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(t)())))
 	require.NoError(t, e)
 
 	client := pb.NewClusterClient(conn)
@@ -581,7 +581,7 @@ func TestServerRateLimit(t *testing.T) {
 
 	addr := setupServer(t, 1, "").address
 
-	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(t))))
+	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(t)())))
 	require.NoError(t, e)
 
 	client := pb.NewClusterClient(conn)
@@ -595,7 +595,7 @@ func TestServerRedirect(t *testing.T) {
 
 	addr := setupServer(t, 1, "new.example.com:443").address
 
-	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(t))))
+	conn, e := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(t)())))
 	require.NoError(t, e)
 
 	client := pb.NewClusterClient(conn)
@@ -616,7 +616,7 @@ func BenchmarkViaClient(b *testing.B) {
 	endpoint := setupServerWithLogger(b, 500000, "", zap.NewNop()).address
 
 	conn, e := grpc.NewClient(endpoint,
-		grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(b))),
+		grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(b)())),
 	)
 	require.NoError(b, e)
 

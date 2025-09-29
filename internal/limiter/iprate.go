@@ -75,11 +75,13 @@ func (iPRL *IPRateLimiter) RunGC(ctx context.Context) {
 // DoGC runs a single round of garbage collection.
 func (iPRL *IPRateLimiter) DoGC(now time.Time) {
 	iPRL.mu.Lock()
+
 	for key, val := range iPRL.ips {
 		// AllowN on success consumes the tokens, but as the limiter is going to be dropped, it doesn't matter
 		if val.AllowN(now, iPRL.bucketSize) {
 			delete(iPRL.ips, key)
 		}
 	}
+
 	iPRL.mu.Unlock()
 }

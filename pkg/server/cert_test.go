@@ -81,17 +81,19 @@ func GetServerTLSConfig(t testing.TB) *tls.Config {
 	}
 }
 
-func GetClientTLSConfig(t testing.TB) *tls.Config {
+func GetClientTLSConfig(t testing.TB) func() *tls.Config {
 	t.Helper()
 
-	cert, err := onceCert()
-	require.NoError(t, err)
+	return func() *tls.Config {
+		cert, err := onceCert()
+		require.NoError(t, err)
 
-	certPool := x509.NewCertPool()
-	certPool.AddCert(cert.Leaf)
+		certPool := x509.NewCertPool()
+		certPool.AddCert(cert.Leaf)
 
-	return &tls.Config{
-		RootCAs:    certPool,
-		MinVersion: tls.VersionTLS12,
+		return &tls.Config{
+			RootCAs:    certPool,
+			MinVersion: tls.VersionTLS12,
+		}
 	}
 }

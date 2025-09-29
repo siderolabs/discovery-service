@@ -101,7 +101,7 @@ func (state *State) GarbageCollect(now time.Time) (removedClusters, removedAffil
 	state.mGCClusters.Add(float64(removedClusters))
 	state.mGCAffiliates.Add(float64(removedAffiliates))
 
-	return
+	return removedClusters, removedAffiliates
 }
 
 // RunGC runs the garbage collection on interval.
@@ -145,7 +145,7 @@ func (state *State) stats() (clusters, affiliates, endpoints, subscriptions int)
 		subscriptions += s
 	}
 
-	return
+	return clusters, affiliates, endpoints, subscriptions
 }
 
 // Describe implements prom.Collector interface.
@@ -157,14 +157,17 @@ func (state *State) Describe(ch chan<- *prom.Desc) {
 func (state *State) Collect(ch chan<- prom.Metric) {
 	clusters, affiliates, endpoints, subscriptions := state.stats()
 
-	ch <- prom.MustNewConstMetric(state.mClustersDesc, prom.GaugeValue, float64(clusters))
-	ch <- prom.MustNewConstMetric(state.mAffiliatesDesc, prom.GaugeValue, float64(affiliates))
-	ch <- prom.MustNewConstMetric(state.mEndpointsDesc, prom.GaugeValue, float64(endpoints))
-	ch <- prom.MustNewConstMetric(state.mSubscriptionsDesc, prom.GaugeValue, float64(subscriptions))
-
-	ch <- state.mGCRuns
-	ch <- state.mGCClusters
-	ch <- state.mGCAffiliates
+	for _, metric := range []prom.Metric{
+		prom.MustNewConstMetric(state.mClustersDesc, prom.GaugeValue, float64(clusters)),
+		prom.MustNewConstMetric(state.mAffiliatesDesc, prom.GaugeValue, float64(affiliates)),
+		prom.MustNewConstMetric(state.mEndpointsDesc, prom.GaugeValue, float64(endpoints)),
+		prom.MustNewConstMetric(state.mSubscriptionsDesc, prom.GaugeValue, float64(subscriptions)),
+		state.mGCRuns,
+		state.mGCClusters,
+		state.mGCAffiliates,
+	} {
+		ch <- metric
+	}
 }
 
 // Check interfaces.

@@ -99,7 +99,7 @@ func (affiliate *Affiliate) GarbageCollect(now time.Time) (remove, changed bool)
 		remove = true
 		changed = true
 
-		return
+		return remove, changed
 	}
 
 	n := 0
@@ -120,5 +120,5 @@ func (affiliate *Affiliate) GarbageCollect(now time.Time) (remove, changed bool)
 		affiliate.endpoints = slices.Clip(affiliate.endpoints)
 	}
 
-	return
+	return remove, changed
 }
