@@ -4,23 +4,23 @@ go 1.25.0
 
 require (
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0
-	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.2
+	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.3
 	github.com/jonboulle/clockwork v0.5.0
-	github.com/planetscale/vtprotobuf v0.6.1-0.20240917153116-6f2963f01587
+	github.com/planetscale/vtprotobuf ba97887b0a25
 	github.com/prometheus/client_golang v1.23.2
 	github.com/siderolabs/crypto v0.6.4
 	github.com/siderolabs/discovery-api v0.1.6
 	github.com/siderolabs/discovery-client v0.1.13
-	github.com/siderolabs/gen v0.8.5
-	github.com/siderolabs/go-debug v0.6.0
+	github.com/siderolabs/gen v0.8.6
+	github.com/siderolabs/go-debug v0.6.1
 	github.com/siderolabs/proto-codec v0.1.2
 	github.com/stretchr/testify v1.11.1
-	go.uber.org/zap v1.27.0
-	golang.org/x/net v0.44.0
-	golang.org/x/sync v0.17.0
-	golang.org/x/time v0.13.0
-	google.golang.org/grpc v1.75.1
-	google.golang.org/protobuf v1.36.9
+	go.uber.org/zap v1.27.1
+	golang.org/x/net v0.47.0
+	golang.org/x/sync v0.18.0
+	golang.org/x/time v0.14.0
+	google.golang.org/grpc v1.77.0
+	google.golang.org/protobuf v1.36.10
 )
 
 require (
