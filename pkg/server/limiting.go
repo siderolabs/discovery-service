@@ -32,7 +32,7 @@ func pause(ctx context.Context, limiter *limiter.IPRateLimiter) error {
 
 // RateLimitUnaryServerInterceptor limits Unary PRCs from an IPAdress.
 func RateLimitUnaryServerInterceptor(limiter *limiter.IPRateLimiter) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+	return func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 		err = pause(ctx, limiter)
 		if err != nil {
 			return resp, err
@@ -44,7 +44,7 @@ func RateLimitUnaryServerInterceptor(limiter *limiter.IPRateLimiter) grpc.UnaryS
 
 // RateLimitStreamServerInterceptor limits Stream PRCs from an IPAdress.
 func RateLimitStreamServerInterceptor(limiter *limiter.IPRateLimiter) grpc.StreamServerInterceptor {
-	return func(srv interface{}, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	return func(srv any, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		ctx := ss.Context()
 
 		err := pause(ctx, limiter)

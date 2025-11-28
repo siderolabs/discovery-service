@@ -347,7 +347,7 @@ func buildTestSnapshot(numClusters int) *storagepb.StateSnapshot {
 			affiliates = append(affiliates, &storagepb.AffiliateSnapshot{
 				Id:         fmt.Sprintf("aff%d", j),
 				Expiration: timestamppb.New(time.Now().Add(time.Hour)),
-				Data:       []byte(fmt.Sprintf("aff%d data", j)),
+				Data:       fmt.Appendf(nil, "aff%d data", j),
 			})
 		}
 
@@ -355,7 +355,7 @@ func buildTestSnapshot(numClusters int) *storagepb.StateSnapshot {
 			affiliates[0].Endpoints = []*storagepb.EndpointSnapshot{
 				{
 					Expiration: timestamppb.New(time.Now().Add(time.Hour)),
-					Data:       []byte(fmt.Sprintf("endpoint%d data", i)),
+					Data:       fmt.Appendf(nil, "endpoint%d data", i),
 				},
 			}
 		}

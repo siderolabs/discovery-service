@@ -313,7 +313,7 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 }
 
 func recoveryHandler(logger *zap.Logger) grpc_recovery.RecoveryHandlerFunc {
-	return func(p interface{}) error {
+	return func(p any) error {
 		if logger != nil {
 			logger.Error("grpc panic", zap.Any("panic", p), zap.Stack("stack"))
 		}

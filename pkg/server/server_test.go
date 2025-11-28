@@ -477,7 +477,7 @@ func TestValidation(t *testing.T) {
 			_, err := client.AffiliateUpdate(ctx, &pb.AffiliateUpdateRequest{
 				ClusterId:          "smallcluster",
 				AffiliateId:        "af",
-				AffiliateEndpoints: [][]byte{[]byte(fmt.Sprintf("endpoint%d", i))},
+				AffiliateEndpoints: [][]byte{fmt.Appendf(nil, "endpoint%d", i)},
 				Ttl:                durationpb.New(time.Minute),
 			})
 			require.NoError(t, err)
@@ -648,7 +648,7 @@ func BenchmarkViaClient(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for range b.N {
+	for b.Loop() {
 		_, err := client.Hello(ctx, helloReq)
 		require.NoError(b, err)
 
