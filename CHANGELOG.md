@@ -1,3 +1,45 @@
+## [discovery-service 1.0.12](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.12) (2025-11-28)
+
+Welcome to the v1.0.12 release of discovery-service!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/discovery-service/issues.
+
+### Contributors
+
+* Andrey Smirnov
+
+### Changes
+<details><summary>2 commits</summary>
+<p>
+
+* [`b7b68e0`](https://github.com/siderolabs/discovery-service/commit/b7b68e021747d73608a9f622e9ba581e3cf1e1ea) chore: update dependencies, Go version
+* [`2c1239f`](https://github.com/siderolabs/discovery-service/commit/2c1239f89dab4e2b9a7c5555aef76cca1ba8fca9) refactor: use DynamicCertificate from crypto library
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/grpc-ecosystem/go-grpc-middleware/v2**  v2.3.2 -> v2.3.3
+* **github.com/planetscale/vtprotobuf**                6f2963f01587 -> ba97887b0a25
+* **github.com/prometheus/client_golang**              v1.22.0 -> v1.23.2
+* **github.com/siderolabs/crypto**                     v0.6.4 **_new_**
+* **github.com/siderolabs/discovery-client**           v0.1.12 -> v0.1.13
+* **github.com/siderolabs/gen**                        v0.8.4 -> v0.8.6
+* **github.com/siderolabs/go-debug**                   v0.5.0 -> v0.6.1
+* **github.com/siderolabs/proto-codec**                v0.1.2 -> v0.1.3
+* **github.com/stretchr/testify**                      v1.10.0 -> v1.11.1
+* **go.uber.org/zap**                                  v1.27.0 -> v1.27.1
+* **golang.org/x/net**                                 v0.41.0 -> v0.47.0
+* **golang.org/x/sync**                                v0.15.0 -> v0.18.0
+* **golang.org/x/time**                                v0.12.0 -> v0.14.0
+* **google.golang.org/grpc**                           v1.73.0 -> v1.77.0
+* **google.golang.org/protobuf**                       v1.36.6 -> v1.36.10
+
+Previous release can be found at [v1.0.11](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.11)
+
 ## [discovery-service 1.0.11](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.11) (2025-07-03)
 
 Welcome to the v1.0.11 release of discovery-service!
