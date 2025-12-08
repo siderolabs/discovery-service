@@ -36,9 +36,10 @@ import (
 	"github.com/siderolabs/discovery-service/internal/landing"
 	"github.com/siderolabs/discovery-service/internal/limiter"
 	"github.com/siderolabs/discovery-service/internal/state"
-	"github.com/siderolabs/discovery-service/internal/state/storage"
+	storageinternal "github.com/siderolabs/discovery-service/internal/state/storage"
 	"github.com/siderolabs/discovery-service/pkg/limits"
 	"github.com/siderolabs/discovery-service/pkg/server"
+	"github.com/siderolabs/discovery-service/pkg/storage"
 )
 
 // Options are the configuration options for the service.
@@ -49,7 +50,13 @@ type Options struct {
 	LandingAddr  string
 	MetricsAddr  string
 	SnapshotPath string
-	DebugAddr    string
+
+	// SnapshotStore is an optional store for snapshots.
+	//
+	// When set, SnapshotPath is ignored, and the snapshots are read from and written to the provided store.
+	SnapshotStore storage.SnapshotStore
+
+	DebugAddr string
 
 	CertificatePath, KeyPath string
 
@@ -108,7 +115,7 @@ func newGRPCServer(ctx context.Context, state *state.State, options Options, log
 
 // Run starts the service with the given options.
 //
-//nolint:gocognit,gocyclo,cyclop
+//nolint:gocognit,gocyclo,cyclop,maintidx
 func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 	logger.Info("service starting")
 	defer logger.Info("service shut down")
@@ -117,11 +124,15 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 
 	state := state.NewState(logger)
 
-	var stateStorage *storage.Storage
+	var stateStorage *storageinternal.Storage
 
 	if options.SnapshotsEnabled {
-		stateStorage = storage.New(options.SnapshotPath, state, logger)
-		if err := stateStorage.Load(); err != nil {
+		if options.SnapshotStore == nil {
+			options.SnapshotStore = &storageinternal.FileStore{Path: options.SnapshotPath}
+		}
+
+		stateStorage = storageinternal.New(options.SnapshotStore, state, logger)
+		if err := stateStorage.Load(ctx); err != nil {
 			logger.Warn("failed to load state from storage", zap.Error(err))
 		}
 	} else {

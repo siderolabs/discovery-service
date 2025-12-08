@@ -20,7 +20,7 @@ import (
 func BenchmarkExport(b *testing.B) {
 	logger := zap.NewNop()
 	state := buildState(b, buildTestSnapshot(b.N), logger)
-	storage := storage.New("", state, logger)
+	storage := storage.New(nil, state, logger)
 
 	b.ReportAllocs()
 	b.ResetTimer()

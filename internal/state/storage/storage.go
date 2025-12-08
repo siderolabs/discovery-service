@@ -23,6 +23,7 @@ import (
 	"go.uber.org/zap"
 
 	storagepb "github.com/siderolabs/discovery-service/api/storage"
+	"github.com/siderolabs/discovery-service/pkg/storage"
 )
 
 const (
@@ -48,7 +49,7 @@ type Storage struct {
 	lastOperationEndpointsMetric  *prom.GaugeVec
 	lastOperationDurationMetric   *prom.GaugeVec
 
-	path string
+	store storage.SnapshotStore
 }
 
 // Describe implements prometheus.Collector interface.
@@ -76,11 +77,11 @@ type Snapshotter interface {
 }
 
 // New creates a new instance of Storage.
-func New(path string, state Snapshotter, logger *zap.Logger) *Storage {
+func New(store storage.SnapshotStore, state Snapshotter, logger *zap.Logger) *Storage {
 	return &Storage{
 		state:  state,
-		logger: logger.With(zap.String("component", "storage"), zap.String("path", path)),
-		path:   path,
+		logger: logger.With(zap.String("component", "storage")),
+		store:  store,
 
 		operationsMetric: prom.NewCounterVec(prom.CounterOpts{
 			Name: "discovery_storage_operations_total",
@@ -120,27 +121,34 @@ func (storage *Storage) Start(ctx context.Context, clock clockwork.Clock, interv
 	for {
 		select {
 		case <-ctx.Done():
-			storage.logger.Info("received shutdown signal")
-
-			if err := storage.Save(); err != nil {
-				return fmt.Errorf("failed to save state on shutdown: %w", err)
-			}
-
-			if errors.Is(ctx.Err(), context.Canceled) {
-				return nil
-			}
-
-			return ctx.Err()
+			return storage.shutdown(ctx)
 		case <-ticker.Chan():
-			if err := storage.Save(); err != nil {
+			if err := storage.Save(ctx); err != nil {
 				storage.logger.Error("failed to save state", zap.Error(err))
 			}
 		}
 	}
 }
 
+func (storage *Storage) shutdown(ctx context.Context) error {
+	storage.logger.Info("received shutdown signal")
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	if err := storage.Save(shutdownCtx); err != nil { //nolint:contextcheck
+		return fmt.Errorf("failed to save state on shutdown: %w", err)
+	}
+
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return nil
+	}
+
+	return ctx.Err()
+}
+
 // Save saves all clusters' states into the persistent storage.
-func (storage *Storage) Save() (err error) {
+func (storage *Storage) Save(ctx context.Context) (err error) {
 	start := time.Now()
 
 	defer func() {
@@ -156,27 +164,21 @@ func (storage *Storage) Save() (err error) {
 		}
 	}()
 
-	if err = os.MkdirAll(filepath.Dir(storage.path), 0o755); err != nil {
-		return fmt.Errorf("failed to create directory path: %w", err)
-	}
-
-	tmpFile, err := getTempFile(storage.path)
+	writer, err := storage.store.Writer(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create temporary file: %w", err)
+		return fmt.Errorf("failed to get writer from store: %w", err)
 	}
 
-	defer func() {
-		tmpFile.Close()           //nolint:errcheck
-		os.Remove(tmpFile.Name()) //nolint:errcheck
-	}()
+	defer writer.Close() //nolint:errcheck
 
-	stats, err := storage.Export(tmpFile)
+	stats, err := storage.Export(writer)
 	if err != nil {
 		return fmt.Errorf("failed to write snapshot: %w", err)
 	}
 
-	if err = commitTempFile(tmpFile, storage.path); err != nil {
-		return fmt.Errorf("failed to commit temporary file: %w", err)
+	// Make sure to close the writer to flush all data to the underlying storage.
+	if err = writer.Close(); err != nil {
+		return fmt.Errorf("failed to close store: %w", err)
 	}
 
 	duration := time.Since(start)
@@ -195,7 +197,7 @@ func (storage *Storage) Save() (err error) {
 }
 
 // Load loads all clusters' states from the persistent storage.
-func (storage *Storage) Load() (err error) {
+func (storage *Storage) Load(ctx context.Context) (err error) {
 	defer func() {
 		if err != nil {
 			storage.operationsMetric.WithLabelValues(operationLoad, statusError).Inc()
@@ -211,21 +213,20 @@ func (storage *Storage) Load() (err error) {
 
 	start := time.Now()
 
-	// open file for reading
-	file, err := os.Open(storage.path)
+	reader, err := storage.store.Reader(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
+		return fmt.Errorf("failed to get reader: %w", err)
 	}
 
-	defer file.Close() //nolint:errcheck
+	defer reader.Close() //nolint:errcheck
 
-	stats, err := storage.Import(file)
+	stats, err := storage.Import(reader)
 	if err != nil {
 		return fmt.Errorf("failed to read snapshot: %w", err)
 	}
 
-	if err = file.Close(); err != nil {
-		return fmt.Errorf("failed to close file: %w", err)
+	if err = reader.Close(); err != nil {
+		return fmt.Errorf("failed to close reader: %w", err)
 	}
 
 	duration := time.Since(start)
@@ -408,4 +409,55 @@ type SnapshotStats struct {
 	NumClusters   int
 	NumAffiliates int
 	NumEndpoints  int
+}
+
+// FileStore is a file-based implementation of the Store interface.
+type FileStore struct {
+	Path string
+}
+
+// Reader implements Store interface.
+func (f *FileStore) Reader(context.Context) (io.ReadCloser, error) {
+	return os.Open(f.Path)
+}
+
+// Writer implements Store interface.
+func (f *FileStore) Writer(context.Context) (io.WriteCloser, error) {
+	return &fileWriter{path: f.Path}, nil
+}
+
+type fileWriter struct {
+	tmpFile *os.File
+	path    string
+}
+
+// Write implements io.Writer interface.
+func (f *fileWriter) Write(p []byte) (n int, err error) {
+	if f.tmpFile == nil {
+		if err = os.MkdirAll(filepath.Dir(f.path), 0o755); err != nil {
+			return 0, fmt.Errorf("failed to create directory path: %w", err)
+		}
+
+		f.tmpFile, err = getTempFile(f.path)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create temporary file: %w", err)
+		}
+	}
+
+	return f.tmpFile.Write(p)
+}
+
+// Close implements io.Closer interface.
+//
+// It commits the temporary file to the destination.
+func (f *fileWriter) Close() error {
+	if f.tmpFile == nil {
+		return nil
+	}
+
+	commitErr := commitTempFile(f.tmpFile, f.path)
+
+	f.tmpFile = nil
+
+	return commitErr
 }

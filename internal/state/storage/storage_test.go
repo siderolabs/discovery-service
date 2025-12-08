@@ -60,7 +60,7 @@ func TestExport(t *testing.T) {
 
 			importTestState(t, state, tc.snapshot)
 
-			stateStorage := storage.New(path, state, logger)
+			stateStorage := storage.New(&storage.FileStore{Path: path}, state, logger)
 
 			var buffer bytes.Buffer
 
@@ -104,7 +104,7 @@ func TestImport(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "test.binpb")
 			logger := zaptest.NewLogger(t)
 			state := state.NewState(logger)
-			stateStorage := storage.New(path, state, logger)
+			stateStorage := storage.New(&storage.FileStore{Path: path}, state, logger)
 
 			data, err := tc.snapshot.MarshalVT()
 			require.NoError(t, err)
@@ -130,7 +130,7 @@ func TestImportMaxSize(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	state := state.NewState(logger)
 
-	stateStorage := storage.New(path, state, logger)
+	stateStorage := storage.New(&storage.FileStore{Path: path}, state, logger)
 
 	clusterData, err := cluster.MarshalVT()
 	require.NoError(t, err)
@@ -166,11 +166,11 @@ func TestStorage(t *testing.T) {
 	state := newTestSnapshotter(t, snapshot)
 	logger := zaptest.NewLogger(t)
 
-	stateStorage := storage.New(path, state, logger)
+	stateStorage := storage.New(&storage.FileStore{Path: path}, state, logger)
 
 	// test save
 
-	require.NoError(t, stateStorage.Save())
+	require.NoError(t, stateStorage.Save(t.Context()))
 
 	savedBytes, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -183,7 +183,7 @@ func TestStorage(t *testing.T) {
 
 	// test load
 
-	require.NoError(t, stateStorage.Load())
+	require.NoError(t, stateStorage.Load(t.Context()))
 	require.Len(t, state.getLoads(), 1)
 	requireEqualIgnoreOrder(t, snapshot, state.getLoads()[0])
 
@@ -191,8 +191,8 @@ func TestStorage(t *testing.T) {
 
 	snapshot.Clusters[1].Affiliates[0].Data = []byte("new aff1 data")
 
-	require.NoError(t, stateStorage.Save())
-	require.NoError(t, stateStorage.Load())
+	require.NoError(t, stateStorage.Save(t.Context()))
+	require.NoError(t, stateStorage.Load(t.Context()))
 	require.Len(t, state.getLoads(), 2)
 	requireEqualIgnoreOrder(t, snapshot, state.getLoads()[1])
 }
@@ -207,7 +207,7 @@ func TestSchedule(t *testing.T) {
 	state := newTestSnapshotter(t, snapshot)
 	logger := zaptest.NewLogger(t)
 
-	stateStorage := storage.New(path, state, logger)
+	stateStorage := storage.New(&storage.FileStore{Path: path}, state, logger)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	t.Cleanup(cancel)
