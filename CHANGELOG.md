@@ -1,3 +1,57 @@
+## [discovery-service 1.0.1](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.1) (2025-12-10)
+
+Welcome to the v1.0.1 release of discovery-service!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/discovery-service/issues.
+
+### Contributors
+
+* Utku Ozdemir
+
+### Changes
+<details><summary>1 commit</summary>
+<p>
+
+* [`1d3ea34`](https://github.com/siderolabs/discovery-service/commit/1d3ea3400035de533028903e5dcaadfda872297e) feat: add support for custom persistent snapshot store
+</p>
+</details>
+
+### Dependency Changes
+
+This release has no dependency changes
+
+Previous release can be found at [v1.0.12](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.12)
+
+## [discovery-service 1.0.13](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.13) (2025-12-10)
+
+Welcome to the v1.0.13 release of discovery-service!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/discovery-service/issues.
+
+### Contributors
+
+* Utku Ozdemir
+
+### Changes
+<details><summary>1 commit</summary>
+<p>
+
+* [`1d3ea34`](https://github.com/siderolabs/discovery-service/commit/1d3ea3400035de533028903e5dcaadfda872297e) feat: add support for custom persistent snapshot store
+</p>
+</details>
+
+### Dependency Changes
+
+This release has no dependency changes
+
+Previous release can be found at [v1.0.12](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.12)
+
 ## [discovery-service 1.0.12](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.12) (2025-11-28)
 
 Welcome to the v1.0.12 release of discovery-service!
