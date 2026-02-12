@@ -10,7 +10,7 @@ project_name = "discovery-service"
 github_repo = "siderolabs/discovery-service"
 match_deps = "^github.com/(talos-systems/[a-zA-Z0-9-]+)$"
 
-previous = "v1.0.12"
+previous = "v1.0.13"
 # pre_release = true
 
 # [notes]

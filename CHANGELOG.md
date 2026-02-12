@@ -1,3 +1,35 @@
+## [discovery-service 1.10.14](https://github.com/siderolabs/discovery-service/releases/tag/v1.10.14) (2026-02-12)
+
+Welcome to the v1.10.14 release of discovery-service!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/discovery-service/issues.
+
+### Contributors
+
+* Andrey Smirnov
+
+### Changes
+<details><summary>1 commit</summary>
+<p>
+
+* [`e0c8062`](https://github.com/siderolabs/discovery-service/commit/e0c8062eeadfceffd11575c88989b9fd65f0cafb) chore: rekres and update dependencies
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/siderolabs/discovery-api**     v0.1.6 -> v0.1.8
+* **github.com/siderolabs/discovery-client**  v0.1.13 -> v0.1.15
+* **golang.org/x/net**                        v0.47.0 -> v0.50.0
+* **golang.org/x/sync**                       v0.18.0 -> v0.19.0
+* **google.golang.org/grpc**                  v1.77.0 -> v1.78.0
+* **google.golang.org/protobuf**              v1.36.10 -> v1.36.11
+
+Previous release can be found at [v1.0.13](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.13)
+
 ## [discovery-service 1.0.13](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.13) (2025-12-10)
 
 Welcome to the v1.0.13 release of discovery-service!
