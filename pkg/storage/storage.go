@@ -3,6 +3,7 @@
 // Use of this software is governed by the Business Source License
 // included in the LICENSE file.
 
+// Package storage provides an interface for reading and writing discovery service snapshots.
 package storage
 
 import (
