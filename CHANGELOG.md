@@ -1,3 +1,32 @@
+## [discovery-service 1.0.15](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.15) (2026-02-27)
+
+Welcome to the v1.0.15 release of discovery-service!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/discovery-service/issues.
+
+### Contributors
+
+* Andrey Smirnov
+
+### Changes
+<details><summary>1 commit</summary>
+<p>
+
+* [`b9a9ae9`](https://github.com/siderolabs/discovery-service/commit/b9a9ae9a5bf11eafe2f5688aea47fe382aa0b2db) feat: update dependencies
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/siderolabs/go-debug**  v0.6.1 -> v0.6.2
+* **golang.org/x/net**                v0.50.0 -> v0.51.0
+* **google.golang.org/grpc**          v1.78.0 -> v1.79.1
+
+Previous release can be found at [v1.0.14](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.14)
+
 ## [discovery-service 1.10.14](https://github.com/siderolabs/discovery-service/releases/tag/v1.10.14) (2026-02-12)
 
 Welcome to the v1.10.14 release of discovery-service!
