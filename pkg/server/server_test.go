@@ -59,14 +59,40 @@ type testServer struct { //nolint:govet
 	address string
 }
 
+type serverOptions struct {
+	logger                   *zap.Logger
+	redirectEndpoint         string
+	rateLimit                rate.Limit
+	disableClientIPReporting bool
+}
+
 func setupServer(t testing.TB, rateLimit rate.Limit, redirectEndpoint string) *testServer {
 	t.Helper()
 
-	return setupServerWithLogger(t, rateLimit, redirectEndpoint, zaptest.NewLogger(t))
+	return setupServerWithOptions(t, serverOptions{
+		rateLimit:        rateLimit,
+		redirectEndpoint: redirectEndpoint,
+		logger:           zaptest.NewLogger(t),
+	})
 }
 
 func setupServerWithLogger(t testing.TB, rateLimit rate.Limit, redirectEndpoint string, logger *zap.Logger) *testServer {
 	t.Helper()
+
+	return setupServerWithOptions(t, serverOptions{
+		rateLimit:        rateLimit,
+		redirectEndpoint: redirectEndpoint,
+		logger:           logger,
+	})
+}
+
+func setupServerWithOptions(t testing.TB, opts serverOptions) *testServer {
+	t.Helper()
+
+	logger := opts.logger
+	if logger == nil {
+		logger = zaptest.NewLogger(t)
+	}
 
 	testServer := &testServer{}
 
@@ -81,7 +107,10 @@ func setupServerWithLogger(t testing.TB, rateLimit rate.Limit, redirectEndpoint 
 		testServer.state.RunGC(ctx, logger, time.Second)
 	}()
 
-	srv := server.NewClusterServer(testServer.state, testServer.stopCh, redirectEndpoint)
+	srv := server.NewClusterServerWithOptions(testServer.state, testServer.stopCh, server.ClusterServerOptions{
+		RedirectEndpoint:         opts.redirectEndpoint,
+		DisableClientIPReporting: opts.disableClientIPReporting,
+	})
 
 	// Check metrics before and after the test
 	// to ensure that collector does not switch from being unchecked to checked and invalid.
@@ -95,7 +124,7 @@ func setupServerWithLogger(t testing.TB, rateLimit rate.Limit, redirectEndpoint 
 
 	testServer.address = testServer.lis.Addr().String()
 
-	limiter := limiter.NewIPRateLimiter(rateLimit, limits.IPRateBurstSizeMax)
+	limiter := limiter.NewIPRateLimiter(opts.rateLimit, limits.IPRateBurstSizeMax)
 
 	testServer.serverOptions = []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
@@ -379,6 +408,55 @@ func TestServerAPI(t *testing.T) {
 			},
 		}, msg))
 	})
+}
+
+func TestHelloClientIPReporting(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name             string
+		disableReporting bool
+		expectClientIP   bool
+	}{
+		{
+			name:             "enabled",
+			disableReporting: false,
+			expectClientIP:   true,
+		},
+		{
+			name:             "disabled",
+			disableReporting: true,
+			expectClientIP:   false,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			addr := setupServerWithOptions(t, serverOptions{
+				rateLimit:                5000,
+				disableClientIPReporting: tt.disableReporting,
+			}).address
+
+			conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(t)())))
+			require.NoError(t, err)
+
+			t.Cleanup(func() { assert.NoError(t, conn.Close()) })
+
+			client := pb.NewClusterClient(conn)
+
+			resp, err := client.Hello(t.Context(), &pb.HelloRequest{
+				ClusterId:     "fake",
+				ClientVersion: "v0.12.0",
+			})
+			require.NoError(t, err)
+
+			if tt.expectClientIP {
+				assert.NotEmpty(t, resp.ClientIp)
+			} else {
+				assert.Empty(t, resp.ClientIp)
+			}
+		})
+	}
 }
 
 func TestValidation(t *testing.T) {

@@ -65,11 +65,12 @@ type Options struct {
 	GCInterval       time.Duration
 	SnapshotInterval time.Duration
 
-	LandingServerEnabled bool
-	DebugServerEnabled   bool
-	MetricsServerEnabled bool
-	SnapshotsEnabled     bool
-	TrustXRealIP         bool
+	LandingServerEnabled     bool
+	DebugServerEnabled       bool
+	MetricsServerEnabled     bool
+	SnapshotsEnabled         bool
+	TrustXRealIP             bool
+	DisableClientIPReporting bool
 }
 
 func newGRPCServer(ctx context.Context, state *state.State, options Options, logger *zap.Logger) (*grpc.Server, *server.ClusterServer, *limiter.IPRateLimiter, *grpc_prometheus.ServerMetrics) {
@@ -103,7 +104,10 @@ func newGRPCServer(ctx context.Context, state *state.State, options Options, log
 		grpc.WriteBufferSize(16 * 1024),
 	}
 
-	srv := server.NewClusterServer(state, ctx.Done(), options.RedirectEndpoint)
+	srv := server.NewClusterServerWithOptions(state, ctx.Done(), server.ClusterServerOptions{
+		RedirectEndpoint:         options.RedirectEndpoint,
+		DisableClientIPReporting: options.DisableClientIPReporting,
+	})
 
 	s := grpc.NewServer(serverOptions...)
 	pb.RegisterClusterServer(s, srv)

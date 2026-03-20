@@ -23,6 +23,12 @@ import (
 
 const updateBuffer = 32
 
+// ClusterServerOptions contains optional configuration for ClusterServer.
+type ClusterServerOptions struct {
+	RedirectEndpoint         string
+	DisableClientIPReporting bool
+}
+
 // ClusterServer implements discovery cluster gRPC API.
 type ClusterServer struct {
 	pb.UnimplementedClusterServer
@@ -32,15 +38,22 @@ type ClusterServer struct {
 
 	mHello *prom.CounterVec
 
-	redirectEndpoint string
+	options ClusterServerOptions
 }
 
 // NewClusterServer builds new ClusterServer.
 func NewClusterServer(state *state.State, stopCh <-chan struct{}, redirectEndpoint string) *ClusterServer {
+	return NewClusterServerWithOptions(state, stopCh, ClusterServerOptions{
+		RedirectEndpoint: redirectEndpoint,
+	})
+}
+
+// NewClusterServerWithOptions builds new ClusterServer with the given options.
+func NewClusterServerWithOptions(state *state.State, stopCh <-chan struct{}, options ClusterServerOptions) *ClusterServer {
 	srv := &ClusterServer{
-		state:            state,
-		stopCh:           stopCh,
-		redirectEndpoint: redirectEndpoint,
+		state:   state,
+		stopCh:  stopCh,
+		options: options,
 		mHello: prom.NewCounterVec(prom.CounterOpts{
 			Name: "discovery_server_hello_requests_total",
 			Help: "Number of hello requests by client version.",
@@ -70,13 +83,15 @@ func (srv *ClusterServer) Hello(ctx context.Context, req *pb.HelloRequest) (*pb.
 
 	resp := &pb.HelloResponse{}
 
-	if peerAddress := PeerAddress(ctx); !value.IsZero(peerAddress) {
-		resp.ClientIp, _ = peerAddress.MarshalBinary() //nolint:errcheck // never fails
+	if !srv.options.DisableClientIPReporting {
+		if peerAddress := PeerAddress(ctx); !value.IsZero(peerAddress) {
+			resp.ClientIp, _ = peerAddress.MarshalBinary() //nolint:errcheck // never fails
+		}
 	}
 
-	if srv.redirectEndpoint != "" {
+	if srv.options.RedirectEndpoint != "" {
 		resp.Redirect = &pb.RedirectMessage{
-			Endpoint: srv.redirectEndpoint,
+			Endpoint: srv.options.RedirectEndpoint,
 		}
 	}
 
