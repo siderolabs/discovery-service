@@ -1,3 +1,30 @@
+## [discovery-service 1.0.16](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.16) (2026-03-20)
+
+Welcome to the v1.0.16 release of discovery-service!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/discovery-service/issues.
+
+### Contributors
+
+* Utku Ozdemir
+
+### Changes
+<details><summary>1 commit</summary>
+<p>
+
+* [`379016a`](https://github.com/siderolabs/discovery-service/commit/379016ae4d6f6024148c00d360919adb291d09cf) feat: add option to disable client IP reporting in Hello response
+</p>
+</details>
+
+### Dependency Changes
+
+This release has no dependency changes
+
+Previous release can be found at [v1.0.15](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.15)
+
 ## [discovery-service 1.0.15](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.15) (2026-02-27)
 
 Welcome to the v1.0.15 release of discovery-service!
