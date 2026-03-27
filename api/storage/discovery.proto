@@ -4,6 +4,7 @@ package sidero.discovery.storage;
 option go_package = "github.com/siderolabs/discovery-service/api/storagepb";
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
 
 // StateSnapshot is the snapshot of the discovery service state.
 message StateSnapshot {
@@ -19,13 +20,19 @@ message ClusterSnapshot {
 // AffiliateSnapshot is the snapshot of an affiliate that is part of a cluster with a set of endpoints.
 message AffiliateSnapshot {
   string id = 1;
+  // deprecated: use ttl instead.
   google.protobuf.Timestamp expiration = 2;
+  // remaining TTL of the record, used instead of expiration (if present).
+  google.protobuf.Duration ttl = 5;
   bytes data = 3;
   repeated EndpointSnapshot endpoints = 4;
 }
 
 // EndpointSnapshot is the snapshot of an endpoint of an affiliate.
 message EndpointSnapshot {
+  // deprecated: use ttl instead.
   google.protobuf.Timestamp expiration = 1;
+  // remaining TTL of the record, used instead of expiration (if present).
+  google.protobuf.Duration ttl = 3;
   bytes data = 2;
 }

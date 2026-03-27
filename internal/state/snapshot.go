@@ -8,9 +8,10 @@ package state
 import (
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/siderolabs/gen/xslices"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	storagepb "github.com/siderolabs/discovery-service/api/storage"
 )
@@ -18,12 +19,12 @@ import (
 // ExportClusterSnapshots exports all cluster snapshots and calls the provided function for each one.
 //
 // Implements storage.Snapshotter interface.
-func (state *State) ExportClusterSnapshots(f func(snapshot *storagepb.ClusterSnapshot) error) error {
+func (state *State) ExportClusterSnapshots(now time.Time, f func(snapshot *storagepb.ClusterSnapshot) error) error {
 	// reuse the same snapshot in each iteration
 	clusterSnapshot := &storagepb.ClusterSnapshot{}
 
 	for _, cluster := range state.clusters.All() {
-		snapshotCluster(cluster, clusterSnapshot)
+		snapshotCluster(cluster, clusterSnapshot, now)
 
 		if err := f(clusterSnapshot); err != nil {
 			return err
@@ -36,7 +37,7 @@ func (state *State) ExportClusterSnapshots(f func(snapshot *storagepb.ClusterSna
 // ImportClusterSnapshots imports cluster snapshots by calling the provided function until it returns false.
 //
 // Implements storage.Snapshotter interface.
-func (state *State) ImportClusterSnapshots(f func() (*storagepb.ClusterSnapshot, bool, error)) error {
+func (state *State) ImportClusterSnapshots(now time.Time, f func() (*storagepb.ClusterSnapshot, bool, error)) error {
 	for {
 		clusterSnapshot, ok, err := f()
 		if err != nil {
@@ -47,7 +48,7 @@ func (state *State) ImportClusterSnapshots(f func() (*storagepb.ClusterSnapshot,
 			break
 		}
 
-		cluster := clusterFromSnapshot(clusterSnapshot)
+		cluster := clusterFromSnapshot(clusterSnapshot, now)
 
 		_, loaded := state.clusters.LoadOrStore(cluster.id, cluster)
 		if loaded {
@@ -58,7 +59,7 @@ func (state *State) ImportClusterSnapshots(f func() (*storagepb.ClusterSnapshot,
 	return nil
 }
 
-func snapshotCluster(cluster *Cluster, snapshot *storagepb.ClusterSnapshot) {
+func snapshotCluster(cluster *Cluster, snapshot *storagepb.ClusterSnapshot, now time.Time) {
 	cluster.affiliatesMu.Lock()
 	defer cluster.affiliatesMu.Unlock()
 
@@ -79,12 +80,11 @@ func snapshotCluster(cluster *Cluster, snapshot *storagepb.ClusterSnapshot) {
 
 		snapshot.Affiliates[i].Id = affiliate.id
 
-		if snapshot.Affiliates[i].Expiration == nil {
-			snapshot.Affiliates[i].Expiration = &timestamppb.Timestamp{}
+		if snapshot.Affiliates[i].Ttl == nil {
+			snapshot.Affiliates[i].Ttl = &durationpb.Duration{}
 		}
 
-		snapshot.Affiliates[i].Expiration.Seconds = affiliate.expiration.Unix()
-		snapshot.Affiliates[i].Expiration.Nanos = int32(affiliate.expiration.Nanosecond())
+		*snapshot.Affiliates[i].Ttl = *durationpb.New(affiliate.expiration.Sub(now).Truncate(time.Second))
 
 		snapshot.Affiliates[i].Data = affiliate.data
 
@@ -102,37 +102,56 @@ func snapshotCluster(cluster *Cluster, snapshot *storagepb.ClusterSnapshot) {
 
 			snapshot.Affiliates[i].Endpoints[j].Data = endpoint.data
 
-			if snapshot.Affiliates[i].Endpoints[j].Expiration == nil {
-				snapshot.Affiliates[i].Endpoints[j].Expiration = &timestamppb.Timestamp{}
+			if snapshot.Affiliates[i].Endpoints[j].Ttl == nil {
+				snapshot.Affiliates[i].Endpoints[j].Ttl = &durationpb.Duration{}
 			}
 
-			snapshot.Affiliates[i].Endpoints[j].Expiration.Seconds = endpoint.expiration.Unix()
-			snapshot.Affiliates[i].Endpoints[j].Expiration.Nanos = int32(endpoint.expiration.Nanosecond())
+			*snapshot.Affiliates[i].Endpoints[j].Ttl = *durationpb.New(endpoint.expiration.Sub(now).Truncate(time.Second))
 		}
 
 		i++
 	}
 }
 
-func clusterFromSnapshot(snapshot *storagepb.ClusterSnapshot) *Cluster {
+func clusterFromSnapshot(snapshot *storagepb.ClusterSnapshot, now time.Time) *Cluster {
 	return &Cluster{
 		id:         snapshot.Id,
-		affiliates: xslices.ToMap(snapshot.Affiliates, affiliateFromSnapshot),
+		affiliates: xslices.ToMap(snapshot.Affiliates, affiliateFromSnapshot(now)),
 	}
 }
 
-func affiliateFromSnapshot(snapshot *storagepb.AffiliateSnapshot) (string, *Affiliate) {
-	return snapshot.Id, &Affiliate{
-		id:         snapshot.Id,
-		expiration: snapshot.Expiration.AsTime(),
-		data:       snapshot.Data,
-		endpoints:  xslices.Map(snapshot.Endpoints, endpointFromSnapshot),
+func affiliateFromSnapshot(now time.Time) func(*storagepb.AffiliateSnapshot) (string, *Affiliate) {
+	return func(snapshot *storagepb.AffiliateSnapshot) (string, *Affiliate) {
+		var expiration time.Time
+
+		if snapshot.Ttl != nil {
+			expiration = now.Add(snapshot.Ttl.AsDuration())
+		} else {
+			expiration = snapshot.Expiration.AsTime()
+		}
+
+		return snapshot.Id, &Affiliate{
+			id:         snapshot.Id,
+			expiration: expiration,
+			data:       snapshot.Data,
+			endpoints:  xslices.Map(snapshot.Endpoints, endpointFromSnapshot(now)),
+		}
 	}
 }
 
-func endpointFromSnapshot(snapshot *storagepb.EndpointSnapshot) Endpoint {
-	return Endpoint{
-		data:       snapshot.Data,
-		expiration: snapshot.Expiration.AsTime(),
+func endpointFromSnapshot(now time.Time) func(*storagepb.EndpointSnapshot) Endpoint {
+	return func(snapshot *storagepb.EndpointSnapshot) Endpoint {
+		var expiration time.Time
+
+		if snapshot.Ttl != nil {
+			expiration = now.Add(snapshot.Ttl.AsDuration())
+		} else {
+			expiration = snapshot.Expiration.AsTime()
+		}
+
+		return Endpoint{
+			data:       snapshot.Data,
+			expiration: expiration,
+		}
 	}
 }

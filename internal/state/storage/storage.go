@@ -70,10 +70,10 @@ func (storage *Storage) Collect(metrics chan<- prom.Metric) {
 // Snapshotter is an interface for exporting and importing cluster state.
 type Snapshotter interface {
 	// ExportClusterSnapshots exports cluster snapshots to the given function.
-	ExportClusterSnapshots(f func(*storagepb.ClusterSnapshot) error) error
+	ExportClusterSnapshots(now time.Time, f func(*storagepb.ClusterSnapshot) error) error
 
 	// ImportClusterSnapshots imports cluster snapshots from the given function.
-	ImportClusterSnapshots(f func() (*storagepb.ClusterSnapshot, bool, error)) error
+	ImportClusterSnapshots(now time.Time, f func() (*storagepb.ClusterSnapshot, bool, error)) error
 }
 
 // New creates a new instance of Storage.
@@ -171,7 +171,7 @@ func (storage *Storage) Save(ctx context.Context) (err error) {
 
 	defer writer.Close() //nolint:errcheck
 
-	stats, err := storage.Export(writer)
+	stats, err := storage.Export(start, writer)
 	if err != nil {
 		return fmt.Errorf("failed to write snapshot: %w", err)
 	}
@@ -220,7 +220,7 @@ func (storage *Storage) Load(ctx context.Context) (err error) {
 
 	defer reader.Close() //nolint:errcheck
 
-	stats, err := storage.Import(reader)
+	stats, err := storage.Import(start, reader)
 	if err != nil {
 		return fmt.Errorf("failed to read snapshot: %w", err)
 	}
@@ -248,7 +248,7 @@ func (storage *Storage) Load(ctx context.Context) (err error) {
 //
 // When importing, we avoid unmarshalling to the storagepb.StateSnapshot type directly, as it causes an allocation of all the cluster snapshots at once.
 // Instead, we process clusters in a streaming manner, unmarshaling them one by one and importing them into the state.
-func (storage *Storage) Import(reader io.Reader) (SnapshotStats, error) {
+func (storage *Storage) Import(now time.Time, reader io.Reader) (SnapshotStats, error) {
 	size := 0
 	numClusters := 0
 	numAffiliates := 0
@@ -258,7 +258,7 @@ func (storage *Storage) Import(reader io.Reader) (SnapshotStats, error) {
 	bufferedReader := bufio.NewReader(reader)
 
 	// unmarshal the clusters in a streaming manner and import them into the state
-	if err := storage.state.ImportClusterSnapshots(func() (*storagepb.ClusterSnapshot, bool, error) {
+	if err := storage.state.ImportClusterSnapshots(now, func() (*storagepb.ClusterSnapshot, bool, error) {
 		headerSize, clusterSize, err := decodeClusterSnapshotHeader(bufferedReader)
 		if err != nil {
 			if err == io.EOF { //nolint:errorlint
@@ -311,7 +311,7 @@ func (storage *Storage) Import(reader io.Reader) (SnapshotStats, error) {
 //
 // When exporting, we avoid marshaling to the storagepb.StateSnapshot type directly, as it causes an allocation of all the cluster snapshots at once.
 // Instead, we process clusters in a streaming manner, marshaling them one by one and exporting them into the writer.
-func (storage *Storage) Export(writer io.Writer) (SnapshotStats, error) {
+func (storage *Storage) Export(now time.Time, writer io.Writer) (SnapshotStats, error) {
 	numClusters := 0
 	numAffiliates := 0
 	numEndpoints := 0
@@ -322,7 +322,7 @@ func (storage *Storage) Export(writer io.Writer) (SnapshotStats, error) {
 	bufferedWriter := bufio.NewWriter(writer)
 
 	// marshal the clusters in a streaming manner and export them into the writer
-	if err := storage.state.ExportClusterSnapshots(func(snapshot *storagepb.ClusterSnapshot) error {
+	if err := storage.state.ExportClusterSnapshots(now, func(snapshot *storagepb.ClusterSnapshot) error {
 		var err error
 
 		buffer, err = encodeClusterSnapshot(buffer, snapshot)

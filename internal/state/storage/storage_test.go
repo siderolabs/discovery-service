@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	storagepb "github.com/siderolabs/discovery-service/api/storage"
@@ -57,14 +58,15 @@ func TestExport(t *testing.T) {
 			path := filepath.Join(tempDir, "test.binpb")
 			logger := zaptest.NewLogger(t)
 			state := state.NewState(logger)
+			now := time.Now()
 
-			importTestState(t, state, tc.snapshot)
+			importTestState(t, state, tc.snapshot, now)
 
 			stateStorage := storage.New(&storage.FileStore{Path: path}, state, logger)
 
 			var buffer bytes.Buffer
 
-			exportStats, err := stateStorage.Export(&buffer)
+			exportStats, err := stateStorage.Export(now, &buffer)
 			require.NoError(t, err)
 
 			assert.Equal(t, statsForSnapshot(tc.snapshot), exportStats)
@@ -105,20 +107,62 @@ func TestImport(t *testing.T) {
 			logger := zaptest.NewLogger(t)
 			state := state.NewState(logger)
 			stateStorage := storage.New(&storage.FileStore{Path: path}, state, logger)
+			now := time.Now()
 
 			data, err := tc.snapshot.MarshalVT()
 			require.NoError(t, err)
 
-			importStats, err := stateStorage.Import(bytes.NewReader(data))
+			importStats, err := stateStorage.Import(now, bytes.NewReader(data))
 			require.NoError(t, err)
 
 			require.Equal(t, statsForSnapshot(tc.snapshot), importStats)
 
-			importedState := exportTestState(t, state)
+			importedState := exportTestState(t, state, now)
 
 			requireEqualIgnoreOrder(t, tc.snapshot, importedState)
 		})
 	}
+}
+
+func TestImportLegacyPbExpiration(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "test.binpb")
+	logger := zaptest.NewLogger(t)
+	state := state.NewState(logger)
+	stateStorage := storage.New(&storage.FileStore{Path: path}, state, logger)
+	now := time.Now()
+
+	// build snapshot with Expiration field set instead of Ttl to test that both are supported for backward compatibility
+	snapshot := &storagepb.StateSnapshot{
+		Clusters: []*storagepb.ClusterSnapshot{
+			{
+				Id: "cluster1",
+				Affiliates: []*storagepb.AffiliateSnapshot{
+					{
+						Id:         "affiliate1",
+						Expiration: timestamppb.New(now.Add(30 * time.Minute)),
+						Endpoints: []*storagepb.EndpointSnapshot{
+							{
+								Expiration: timestamppb.New(now.Add(15 * time.Minute)),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	data, err := snapshot.MarshalVT()
+	require.NoError(t, err)
+
+	_, err = stateStorage.Import(now, bytes.NewReader(data))
+	require.NoError(t, err)
+
+	exportedState := exportTestState(t, state, now)
+
+	assert.Equal(t, 30*time.Minute, exportedState.Clusters[0].Affiliates[0].Ttl.AsDuration())
+	assert.Equal(t, 15*time.Minute, exportedState.Clusters[0].Affiliates[0].Endpoints[0].Ttl.AsDuration())
 }
 
 func TestImportMaxSize(t *testing.T) {
@@ -129,6 +173,7 @@ func TestImportMaxSize(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.binpb")
 	logger := zaptest.NewLogger(t)
 	state := state.NewState(logger)
+	now := time.Now()
 
 	stateStorage := storage.New(&storage.FileStore{Path: path}, state, logger)
 
@@ -142,7 +187,7 @@ func TestImportMaxSize(t *testing.T) {
 
 	t.Logf("max cluster marshaled size: %d", len(data))
 
-	_, err = stateStorage.Import(bytes.NewReader(data))
+	_, err = stateStorage.Import(now, bytes.NewReader(data))
 	require.NoError(t, err)
 
 	// add one more affiliate to trigger an overflow
@@ -153,7 +198,7 @@ func TestImportMaxSize(t *testing.T) {
 	data, err = stateSnapshot.MarshalVT()
 	require.NoError(t, err)
 
-	_, err = stateStorage.Import(bytes.NewReader(data))
+	_, err = stateStorage.Import(now, bytes.NewReader(data))
 	require.ErrorIs(t, err, storage.ErrClusterSnapshotTooLarge)
 }
 
@@ -264,7 +309,7 @@ type testSnapshotter struct {
 func newTestSnapshotter(tb testing.TB, exportData *storagepb.StateSnapshot) *testSnapshotter {
 	state := state.NewState(zaptest.NewLogger(tb))
 
-	importTestState(tb, state, exportData)
+	importTestState(tb, state, exportData, time.Now())
 
 	return &testSnapshotter{exportData: exportData, tb: tb}
 }
@@ -284,15 +329,15 @@ func (m *testSnapshotter) getLoads() []*storagepb.StateSnapshot {
 }
 
 // ExportClusterSnapshots implements storage.Snapshotter interface.
-func (m *testSnapshotter) ExportClusterSnapshots(f func(snapshot *storagepb.ClusterSnapshot) error) error {
+func (m *testSnapshotter) ExportClusterSnapshots(now time.Time, f func(snapshot *storagepb.ClusterSnapshot) error) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
 	tempState := state.NewState(zaptest.NewLogger(m.tb))
 
-	importTestState(m.tb, tempState, m.exportData)
+	importTestState(m.tb, tempState, m.exportData, now)
 
-	if err := tempState.ExportClusterSnapshots(f); err != nil {
+	if err := tempState.ExportClusterSnapshots(now, f); err != nil {
 		return err
 	}
 
@@ -302,17 +347,17 @@ func (m *testSnapshotter) ExportClusterSnapshots(f func(snapshot *storagepb.Clus
 }
 
 // ImportClusterSnapshots implements storage.Snapshotter interface.
-func (m *testSnapshotter) ImportClusterSnapshots(f func() (*storagepb.ClusterSnapshot, bool, error)) error {
+func (m *testSnapshotter) ImportClusterSnapshots(now time.Time, f func() (*storagepb.ClusterSnapshot, bool, error)) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
 	tempState := state.NewState(zaptest.NewLogger(m.tb))
 
-	if err := tempState.ImportClusterSnapshots(f); err != nil {
+	if err := tempState.ImportClusterSnapshots(now, f); err != nil {
 		return err
 	}
 
-	m.loads = append(m.loads, exportTestState(m.tb, tempState))
+	m.loads = append(m.loads, exportTestState(m.tb, tempState, now))
 
 	return nil
 }
@@ -345,17 +390,17 @@ func buildTestSnapshot(numClusters int) *storagepb.StateSnapshot {
 
 		for j := range 5 {
 			affiliates = append(affiliates, &storagepb.AffiliateSnapshot{
-				Id:         fmt.Sprintf("aff%d", j),
-				Expiration: timestamppb.New(time.Now().Add(time.Hour)),
-				Data:       fmt.Appendf(nil, "aff%d data", j),
+				Id:   fmt.Sprintf("aff%d", j),
+				Ttl:  durationpb.New(time.Hour),
+				Data: fmt.Appendf(nil, "aff%d data", j),
 			})
 		}
 
 		if i%2 == 0 {
 			affiliates[0].Endpoints = []*storagepb.EndpointSnapshot{
 				{
-					Expiration: timestamppb.New(time.Now().Add(time.Hour)),
-					Data:       fmt.Appendf(nil, "endpoint%d data", i),
+					Ttl:  durationpb.New(time.Hour),
+					Data: fmt.Appendf(nil, "endpoint%d data", i),
 				},
 			}
 		}
@@ -373,11 +418,7 @@ func buildTestSnapshot(numClusters int) *storagepb.StateSnapshot {
 
 // buildMaxSizeCluster creates a cluster snapshot with the maximum possible marshaled size within the limits of the discovery service.
 func buildMaxSizeCluster() *storagepb.ClusterSnapshot {
-	largestTTL := &timestamppb.Timestamp{
-		Seconds: math.MinInt64,
-		Nanos:   math.MinInt32,
-	} // the timestamp with the maximum possible marshaled size
-
+	largestTTL := durationpb.New(time.Duration(math.MaxInt64))
 	affiliates := make([]*storagepb.AffiliateSnapshot, 0, limits.ClusterAffiliatesMax)
 
 	for range limits.ClusterAffiliatesMax {
@@ -385,16 +426,16 @@ func buildMaxSizeCluster() *storagepb.ClusterSnapshot {
 
 		for range limits.AffiliateEndpointsMax {
 			endpoints = append(endpoints, &storagepb.EndpointSnapshot{
-				Expiration: largestTTL,
-				Data:       bytes.Repeat([]byte("a"), limits.AffiliateDataMax),
+				Ttl:  largestTTL,
+				Data: bytes.Repeat([]byte("a"), limits.AffiliateDataMax),
 			})
 		}
 
 		affiliates = append(affiliates, &storagepb.AffiliateSnapshot{
-			Id:         strings.Repeat("a", limits.AffiliateIDMax),
-			Expiration: largestTTL,
-			Data:       bytes.Repeat([]byte("a"), limits.AffiliateDataMax),
-			Endpoints:  endpoints,
+			Id:        strings.Repeat("a", limits.AffiliateIDMax),
+			Ttl:       largestTTL,
+			Data:      bytes.Repeat([]byte("a"), limits.AffiliateDataMax),
+			Endpoints: endpoints,
 		})
 	}
 
@@ -404,11 +445,11 @@ func buildMaxSizeCluster() *storagepb.ClusterSnapshot {
 	}
 }
 
-func importTestState(tb testing.TB, state *state.State, snapshot *storagepb.StateSnapshot) {
+func importTestState(tb testing.TB, state *state.State, snapshot *storagepb.StateSnapshot, now time.Time) {
 	clusters := snapshot.Clusters
 	i := 0
 
-	err := state.ImportClusterSnapshots(func() (*storagepb.ClusterSnapshot, bool, error) {
+	err := state.ImportClusterSnapshots(now, func() (*storagepb.ClusterSnapshot, bool, error) {
 		if i >= len(clusters) {
 			return nil, false, nil
 		}
@@ -421,10 +462,10 @@ func importTestState(tb testing.TB, state *state.State, snapshot *storagepb.Stat
 	require.NoError(tb, err)
 }
 
-func exportTestState(tb testing.TB, state *state.State) *storagepb.StateSnapshot {
+func exportTestState(tb testing.TB, state *state.State, now time.Time) *storagepb.StateSnapshot {
 	snapshot := &storagepb.StateSnapshot{}
 
-	err := state.ExportClusterSnapshots(func(cluster *storagepb.ClusterSnapshot) error {
+	err := state.ExportClusterSnapshots(now, func(cluster *storagepb.ClusterSnapshot) error {
 		snapshot.Clusters = append(snapshot.Clusters, cluster.CloneVT()) // clone the cluster here, as its reference is reused across iterations
 
 		return nil

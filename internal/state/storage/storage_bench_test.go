@@ -8,6 +8,7 @@ package storage_test
 import (
 	"io"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -19,13 +20,13 @@ import (
 
 func BenchmarkExport(b *testing.B) {
 	logger := zap.NewNop()
-	state := buildState(b, buildTestSnapshot(b.N), logger)
+	state := buildState(b, buildTestSnapshot(b.N), logger, time.Now())
 	storage := storage.New(nil, state, logger)
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	_, err := storage.Export(io.Discard)
+	_, err := storage.Export(time.Now(), io.Discard)
 	require.NoError(b, err)
 }
 
@@ -42,11 +43,11 @@ func TestBenchmarkExportAllocs(t *testing.T) {
 	testBenchmarkAllocs(t, BenchmarkExport, 0)
 }
 
-func buildState(tb testing.TB, data *storagepb.StateSnapshot, logger *zap.Logger) *state.State {
+func buildState(tb testing.TB, data *storagepb.StateSnapshot, logger *zap.Logger, now time.Time) *state.State {
 	i := 0
 	state := state.NewState(logger)
 
-	err := state.ImportClusterSnapshots(func() (*storagepb.ClusterSnapshot, bool, error) {
+	err := state.ImportClusterSnapshots(now, func() (*storagepb.ClusterSnapshot, bool, error) {
 		if i >= len(data.Clusters) {
 			return nil, false, nil
 		}

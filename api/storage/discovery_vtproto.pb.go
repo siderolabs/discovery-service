@@ -9,9 +9,11 @@ import (
 	io "io"
 
 	protohelpers "github.com/planetscale/vtprotobuf/protohelpers"
+	durationpb1 "github.com/planetscale/vtprotobuf/types/known/durationpb"
 	timestamppb1 "github.com/planetscale/vtprotobuf/types/known/timestamppb"
 	proto "google.golang.org/protobuf/proto"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -76,6 +78,7 @@ func (m *AffiliateSnapshot) CloneVT() *AffiliateSnapshot {
 	r := new(AffiliateSnapshot)
 	r.Id = m.Id
 	r.Expiration = (*timestamppb.Timestamp)((*timestamppb1.Timestamp)(m.Expiration).CloneVT())
+	r.Ttl = (*durationpb.Duration)((*durationpb1.Duration)(m.Ttl).CloneVT())
 	if rhs := m.Data; rhs != nil {
 		tmpBytes := make([]byte, len(rhs))
 		copy(tmpBytes, rhs)
@@ -105,6 +108,7 @@ func (m *EndpointSnapshot) CloneVT() *EndpointSnapshot {
 	}
 	r := new(EndpointSnapshot)
 	r.Expiration = (*timestamppb.Timestamp)((*timestamppb1.Timestamp)(m.Expiration).CloneVT())
+	r.Ttl = (*durationpb.Duration)((*durationpb1.Duration)(m.Ttl).CloneVT())
 	if rhs := m.Data; rhs != nil {
 		tmpBytes := make([]byte, len(rhs))
 		copy(tmpBytes, rhs)
@@ -222,6 +226,9 @@ func (this *AffiliateSnapshot) EqualVT(that *AffiliateSnapshot) bool {
 			}
 		}
 	}
+	if !(*durationpb1.Duration)(this.Ttl).EqualVT((*durationpb1.Duration)(that.Ttl)) {
+		return false
+	}
 	return string(this.unknownFields) == string(that.unknownFields)
 }
 
@@ -242,6 +249,9 @@ func (this *EndpointSnapshot) EqualVT(that *EndpointSnapshot) bool {
 		return false
 	}
 	if string(this.Data) != string(that.Data) {
+		return false
+	}
+	if !(*durationpb1.Duration)(this.Ttl).EqualVT((*durationpb1.Duration)(that.Ttl)) {
 		return false
 	}
 	return string(this.unknownFields) == string(that.unknownFields)
@@ -381,6 +391,16 @@ func (m *AffiliateSnapshot) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.Ttl != nil {
+		size, err := (*durationpb1.Duration)(m.Ttl).MarshalToSizedBufferVT(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x2a
+	}
 	if len(m.Endpoints) > 0 {
 		for iNdEx := len(m.Endpoints) - 1; iNdEx >= 0; iNdEx-- {
 			size, err := m.Endpoints[iNdEx].MarshalToSizedBufferVT(dAtA[:i])
@@ -449,6 +469,16 @@ func (m *EndpointSnapshot) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.Ttl != nil {
+		size, err := (*durationpb1.Duration)(m.Ttl).MarshalToSizedBufferVT(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x1a
 	}
 	if len(m.Data) > 0 {
 		i -= len(m.Data)
@@ -530,6 +560,10 @@ func (m *AffiliateSnapshot) SizeVT() (n int) {
 			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 		}
 	}
+	if m.Ttl != nil {
+		l = (*durationpb1.Duration)(m.Ttl).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -546,6 +580,10 @@ func (m *EndpointSnapshot) SizeVT() (n int) {
 	}
 	l = len(m.Data)
 	if l > 0 {
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.Ttl != nil {
+		l = (*durationpb1.Duration)(m.Ttl).SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
@@ -919,6 +957,42 @@ func (m *AffiliateSnapshot) UnmarshalVT(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Ttl", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protohelpers.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return protohelpers.ErrInvalidLength
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return protohelpers.ErrInvalidLength
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Ttl == nil {
+				m.Ttl = &durationpb.Duration{}
+			}
+			if err := (*durationpb1.Duration)(m.Ttl).UnmarshalVT(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := protohelpers.Skip(dAtA[iNdEx:])
@@ -1038,6 +1112,42 @@ func (m *EndpointSnapshot) UnmarshalVT(dAtA []byte) error {
 			m.Data = append(m.Data[:0], dAtA[iNdEx:postIndex]...)
 			if m.Data == nil {
 				m.Data = []byte{}
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Ttl", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protohelpers.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return protohelpers.ErrInvalidLength
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return protohelpers.ErrInvalidLength
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Ttl == nil {
+				m.Ttl = &durationpb.Duration{}
+			}
+			if err := (*durationpb1.Duration)(m.Ttl).UnmarshalVT(dAtA[iNdEx:postIndex]); err != nil {
+				return err
 			}
 			iNdEx = postIndex
 		default:

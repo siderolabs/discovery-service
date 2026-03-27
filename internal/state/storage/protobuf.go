@@ -21,7 +21,7 @@ const (
 	clustersFieldType = protowire.BytesType
 
 	// MaxClusterSize is the maximum allowed size of a cluster snapshot.
-	MaxClusterSize = 138578179
+	MaxClusterSize = 137912579
 )
 
 // ErrClusterSnapshotTooLarge is returned when a cluster snapshot is above the maximum size of MaxClusterSize.

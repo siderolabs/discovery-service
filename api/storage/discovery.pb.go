@@ -13,6 +13,7 @@ import (
 
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -123,11 +124,14 @@ func (x *ClusterSnapshot) GetAffiliates() []*AffiliateSnapshot {
 
 // AffiliateSnapshot is the snapshot of an affiliate that is part of a cluster with a set of endpoints.
 type AffiliateSnapshot struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Expiration    *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=expiration,proto3" json:"expiration,omitempty"`
-	Data          []byte                 `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
-	Endpoints     []*EndpointSnapshot    `protobuf:"bytes,4,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// deprecated: use ttl instead.
+	Expiration *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=expiration,proto3" json:"expiration,omitempty"`
+	// remaining TTL of the record, used instead of expiration (if present).
+	Ttl           *durationpb.Duration `protobuf:"bytes,5,opt,name=ttl,proto3" json:"ttl,omitempty"`
+	Data          []byte               `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	Endpoints     []*EndpointSnapshot  `protobuf:"bytes,4,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -176,6 +180,13 @@ func (x *AffiliateSnapshot) GetExpiration() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *AffiliateSnapshot) GetTtl() *durationpb.Duration {
+	if x != nil {
+		return x.Ttl
+	}
+	return nil
+}
+
 func (x *AffiliateSnapshot) GetData() []byte {
 	if x != nil {
 		return x.Data
@@ -192,9 +203,12 @@ func (x *AffiliateSnapshot) GetEndpoints() []*EndpointSnapshot {
 
 // EndpointSnapshot is the snapshot of an endpoint of an affiliate.
 type EndpointSnapshot struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Expiration    *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=expiration,proto3" json:"expiration,omitempty"`
-	Data          []byte                 `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// deprecated: use ttl instead.
+	Expiration *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=expiration,proto3" json:"expiration,omitempty"`
+	// remaining TTL of the record, used instead of expiration (if present).
+	Ttl           *durationpb.Duration `protobuf:"bytes,3,opt,name=ttl,proto3" json:"ttl,omitempty"`
+	Data          []byte               `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -236,6 +250,13 @@ func (x *EndpointSnapshot) GetExpiration() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *EndpointSnapshot) GetTtl() *durationpb.Duration {
+	if x != nil {
+		return x.Ttl
+	}
+	return nil
+}
+
 func (x *EndpointSnapshot) GetData() []byte {
 	if x != nil {
 		return x.Data
@@ -247,25 +268,27 @@ var File_storage_discovery_proto protoreflect.FileDescriptor
 
 const file_storage_discovery_proto_rawDesc = "" +
 	"\n" +
-	"\x17storage/discovery.proto\x12\x18sidero.discovery.storage\x1a\x1fgoogle/protobuf/timestamp.proto\"V\n" +
+	"\x17storage/discovery.proto\x12\x18sidero.discovery.storage\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egoogle/protobuf/duration.proto\"V\n" +
 	"\rStateSnapshot\x12E\n" +
 	"\bclusters\x18\x01 \x03(\v2).sidero.discovery.storage.ClusterSnapshotR\bclusters\"n\n" +
 	"\x0fClusterSnapshot\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12K\n" +
 	"\n" +
 	"affiliates\x18\x02 \x03(\v2+.sidero.discovery.storage.AffiliateSnapshotR\n" +
-	"affiliates\"\xbd\x01\n" +
+	"affiliates\"\xea\x01\n" +
 	"\x11AffiliateSnapshot\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12:\n" +
 	"\n" +
 	"expiration\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"expiration\x12\x12\n" +
+	"expiration\x12+\n" +
+	"\x03ttl\x18\x05 \x01(\v2\x19.google.protobuf.DurationR\x03ttl\x12\x12\n" +
 	"\x04data\x18\x03 \x01(\fR\x04data\x12H\n" +
-	"\tendpoints\x18\x04 \x03(\v2*.sidero.discovery.storage.EndpointSnapshotR\tendpoints\"b\n" +
+	"\tendpoints\x18\x04 \x03(\v2*.sidero.discovery.storage.EndpointSnapshotR\tendpoints\"\x8f\x01\n" +
 	"\x10EndpointSnapshot\x12:\n" +
 	"\n" +
 	"expiration\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"expiration\x12\x12\n" +
+	"expiration\x12+\n" +
+	"\x03ttl\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\x03ttl\x12\x12\n" +
 	"\x04data\x18\x02 \x01(\fR\x04dataB7Z5github.com/siderolabs/discovery-service/api/storagepbb\x06proto3"
 
 var (
@@ -287,18 +310,21 @@ var file_storage_discovery_proto_goTypes = []any{
 	(*AffiliateSnapshot)(nil),     // 2: sidero.discovery.storage.AffiliateSnapshot
 	(*EndpointSnapshot)(nil),      // 3: sidero.discovery.storage.EndpointSnapshot
 	(*timestamppb.Timestamp)(nil), // 4: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),   // 5: google.protobuf.Duration
 }
 var file_storage_discovery_proto_depIdxs = []int32{
 	1, // 0: sidero.discovery.storage.StateSnapshot.clusters:type_name -> sidero.discovery.storage.ClusterSnapshot
 	2, // 1: sidero.discovery.storage.ClusterSnapshot.affiliates:type_name -> sidero.discovery.storage.AffiliateSnapshot
 	4, // 2: sidero.discovery.storage.AffiliateSnapshot.expiration:type_name -> google.protobuf.Timestamp
-	3, // 3: sidero.discovery.storage.AffiliateSnapshot.endpoints:type_name -> sidero.discovery.storage.EndpointSnapshot
-	4, // 4: sidero.discovery.storage.EndpointSnapshot.expiration:type_name -> google.protobuf.Timestamp
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	5, // 3: sidero.discovery.storage.AffiliateSnapshot.ttl:type_name -> google.protobuf.Duration
+	3, // 4: sidero.discovery.storage.AffiliateSnapshot.endpoints:type_name -> sidero.discovery.storage.EndpointSnapshot
+	4, // 5: sidero.discovery.storage.EndpointSnapshot.expiration:type_name -> google.protobuf.Timestamp
+	5, // 6: sidero.discovery.storage.EndpointSnapshot.ttl:type_name -> google.protobuf.Duration
+	7, // [7:7] is the sub-list for method output_type
+	7, // [7:7] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_storage_discovery_proto_init() }
