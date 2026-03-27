@@ -1,3 +1,30 @@
+## [discovery-service 1.0.17](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.17) (2026-03-27)
+
+Welcome to the v1.0.17 release of discovery-service!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/discovery-service/issues.
+
+### Contributors
+
+* Andrey Smirnov
+
+### Changes
+<details><summary>1 commit</summary>
+<p>
+
+* [`2267f4c`](https://github.com/siderolabs/discovery-service/commit/2267f4c5a3c7b5ef1b3c1fbe6faaa2e669aad4ab) feat: store relative expiration (TTL) instead of absolute
+</p>
+</details>
+
+### Dependency Changes
+
+This release has no dependency changes
+
+Previous release can be found at [v1.0.16](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.16)
+
 ## [discovery-service 1.0.16](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.16) (2026-03-20)
 
 Welcome to the v1.0.16 release of discovery-service!
