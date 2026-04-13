@@ -70,6 +70,7 @@ type Options struct {
 	MetricsServerEnabled     bool
 	SnapshotsEnabled         bool
 	TrustXRealIP             bool
+	TrustFirstXForwadedFor   bool
 	DisableClientIPReporting bool
 }
 
@@ -125,6 +126,7 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 	defer logger.Info("service shut down")
 
 	server.TrustXRealIP(options.TrustXRealIP)
+	server.TrustFirstXForwardedFor(options.TrustFirstXForwadedFor)
 
 	state := state.NewState(logger)
 

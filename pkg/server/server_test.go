@@ -253,6 +253,23 @@ func TestServerAPI(t *testing.T) {
 		assert.Equal(t, []byte{0x1, 0x2, 0x3, 0x4}, resp.ClientIp)
 	})
 
+	t.Run("HelloWithForwardedFor", func(t *testing.T) {
+		t.Parallel()
+
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		ctx = metadata.AppendToOutgoingContext(ctx, "X-Forwarded-For", "5.6.7.8,192.168.0.0.1") // with forwarded for IP of client
+
+		resp, err := client.Hello(ctx, &pb.HelloRequest{
+			ClusterId:     "fake",
+			ClientVersion: "v0.12.0",
+		})
+		require.NoError(t, err)
+
+		assert.Equal(t, []byte{0x5, 0x6, 0x7, 0x8}, resp.ClientIp)
+	})
+
 	t.Run("AffiliateUpdate", func(t *testing.T) {
 		t.Parallel()
 
@@ -628,14 +645,14 @@ func TestValidation(t *testing.T) {
 	})
 }
 
-func testHitRateLimit(client pb.ClusterClient, ip string) func(t *testing.T) {
+func testHitRateLimit(client pb.ClusterClient, ip string, headerName string) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Parallel()
 
 		ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 		defer cancel()
 
-		ctx = metadata.AppendToOutgoingContext(ctx, "X-Real-IP", ip)
+		ctx = metadata.AppendToOutgoingContext(ctx, headerName, ip)
 
 		for range limits.IPRateBurstSizeMax {
 			_, err := client.Hello(ctx, &pb.HelloRequest{
@@ -664,8 +681,8 @@ func TestServerRateLimit(t *testing.T) {
 
 	client := pb.NewClusterClient(conn)
 
-	t.Run("HitRateLimitIP1", testHitRateLimit(client, "1.2.3.4"))
-	t.Run("HitRateLimitIP2", testHitRateLimit(client, "5.6.7.8"))
+	t.Run("HitRateLimitIP1", testHitRateLimit(client, "1.2.3.4", "X-Real-IP"))
+	t.Run("HitRateLimitIP2", testHitRateLimit(client, "5.6.7.8", "X-Forwarded-For"))
 }
 
 func TestServerRedirect(t *testing.T) {
@@ -737,4 +754,5 @@ func BenchmarkViaClient(b *testing.B) {
 
 func init() {
 	server.TrustXRealIP(true)
+	server.TrustFirstXForwardedFor(true)
 }

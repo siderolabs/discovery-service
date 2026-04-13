@@ -24,19 +24,20 @@ import (
 )
 
 var (
-	listenAddr       = ":3000"
-	landingAddr      = ":3001"
-	metricsAddr      = ":2122"
-	debugAddr        = ":2123"
-	devMode          = false
-	gcInterval       = time.Minute
-	redirectEndpoint = ""
-	snapshotsEnabled = true
-	snapshotPath     = "/var/discovery-service/state.binpb"
-	snapshotInterval = 10 * time.Minute
-	certificatePath  = ""
-	keyPath          = ""
-	trustXRealIP     = true
+	listenAddr              = ":3000"
+	landingAddr             = ":3001"
+	metricsAddr             = ":2122"
+	debugAddr               = ":2123"
+	devMode                 = false
+	gcInterval              = time.Minute
+	redirectEndpoint        = ""
+	snapshotsEnabled        = true
+	snapshotPath            = "/var/discovery-service/state.binpb"
+	snapshotInterval        = 10 * time.Minute
+	certificatePath         = ""
+	keyPath                 = ""
+	trustXRealIP            = true
+	trustFirstXForwardedFor = true
 )
 
 func init() {
@@ -52,6 +53,7 @@ func init() {
 	flag.StringVar(&snapshotPath, "snapshot-path", snapshotPath, "path to the snapshot file")
 	flag.DurationVar(&snapshotInterval, "snapshot-interval", snapshotInterval, "interval to save the snapshot")
 	flag.BoolVar(&trustXRealIP, "trust-x-real-ip", trustXRealIP, "trust X-Real-IP header")
+	flag.BoolVar(&trustFirstXForwardedFor, "trust-first-x-forwarded-for", trustFirstXForwardedFor, "trust the first entry in the X-Forwarded-For header")
 
 	if debug.Enabled {
 		flag.StringVar(&debugAddr, "debug-addr", debugAddr, "debug (pprof, trace, expvar) listen addr")
@@ -104,7 +106,8 @@ func main() {
 
 			MetricsRegisterer: prometheus.DefaultRegisterer,
 
-			TrustXRealIP: trustXRealIP,
+			TrustXRealIP:           trustXRealIP,
+			TrustFirstXForwadedFor: trustFirstXForwardedFor,
 		}, logger)
 	}); err != nil {
 		logger.Error("service failed", zap.Error(err))
