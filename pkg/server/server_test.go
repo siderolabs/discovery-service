@@ -710,7 +710,8 @@ func TestServerRedirect(t *testing.T) {
 func BenchmarkViaClient(b *testing.B) {
 	endpoint := setupServerWithLogger(b, 500000, "", zap.NewNop()).address
 
-	conn, e := grpc.NewClient(endpoint,
+	conn, e := grpc.NewClient(
+		endpoint,
 		grpc.WithTransportCredentials(credentials.NewTLS(GetClientTLSConfig(b)())),
 	)
 	require.NoError(b, e)

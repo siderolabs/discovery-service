@@ -55,7 +55,8 @@ func UnaryRequestLogger(logger *zap.Logger) grpc.UnaryServerInterceptor {
 			level = zapcore.ErrorLevel
 		}
 
-		logger.Log(level, info.FullMethod,
+		logger.Log(
+			level, info.FullMethod,
 			append(
 				[]zapcore.Field{
 					zap.Duration("duration", duration),
@@ -89,7 +90,8 @@ func StreamRequestLogger(logger *zap.Logger) grpc.StreamServerInterceptor {
 			level = zapcore.ErrorLevel
 		}
 
-		logger.Log(level, info.FullMethod,
+		logger.Log(
+			level, info.FullMethod,
 			zap.Duration("duration", duration),
 			zap.Stringer("code", code),
 			zap.Error(err),
