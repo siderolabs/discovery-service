@@ -26,7 +26,6 @@ import (
 	"github.com/siderolabs/go-debug"
 	"go.uber.org/zap"
 	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -165,10 +164,6 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 
 	insecure := options.CertificatePath == "" && options.KeyPath == ""
 
-	if insecure {
-		rootHandler = h2c.NewHandler(rootHandler, &http2.Server{})
-	}
-
 	var tlsConfig *tls.Config
 
 	if !insecure {
@@ -192,6 +187,12 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 		Handler:           rootHandler,
 		TLSConfig:         tlsConfig,
 		ErrorLog:          zap.NewStdLog(logger.With(zap.String("server", "http"))),
+	}
+
+	if insecure {
+		var protocols http.Protocols
+		protocols.SetUnencryptedHTTP2(true)
+		mainServer.Protocols = &protocols
 	}
 
 	if err = http2.ConfigureServer(mainServer, nil); err != nil {
