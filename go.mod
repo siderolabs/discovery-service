@@ -1,6 +1,6 @@
 module github.com/siderolabs/discovery-service
 
-go 1.25.2
+go 1.26.5
 
 require (
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0
