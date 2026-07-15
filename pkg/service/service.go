@@ -100,7 +100,6 @@ func newGRPCServer(ctx context.Context, state *state.State, options Options, log
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
 			MinTime: 10 * time.Second,
 		}),
-		grpc.SharedWriteBuffer(true),
 		grpc.ReadBufferSize(16 * 1024),
 		grpc.WriteBufferSize(16 * 1024),
 	}

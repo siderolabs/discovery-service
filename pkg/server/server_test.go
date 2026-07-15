@@ -135,7 +135,6 @@ func setupServerWithOptions(t testing.TB, opts serverOptions) *testServer {
 			server.StreamRequestLogger(logger),
 			server.RateLimitStreamServerInterceptor(limiter),
 		),
-		grpc.SharedWriteBuffer(true),
 		grpc.ReadBufferSize(16 * 1024),
 		grpc.WriteBufferSize(16 * 1024),
 	}

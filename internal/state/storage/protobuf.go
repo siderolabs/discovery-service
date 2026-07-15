@@ -25,7 +25,7 @@ const (
 )
 
 // ErrClusterSnapshotTooLarge is returned when a cluster snapshot is above the maximum size of MaxClusterSize.
-var ErrClusterSnapshotTooLarge = fmt.Errorf("cluster snapshot is above the maximum size of %qB", MaxClusterSize)
+var ErrClusterSnapshotTooLarge = fmt.Errorf("cluster snapshot is above the maximum size of %dB", MaxClusterSize)
 
 // encodeClusterSnapshot encodes a ClusterSnapshot into the given buffer, resizing it as needed.
 //
