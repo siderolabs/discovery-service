@@ -36,6 +36,7 @@ import (
 	"github.com/siderolabs/discovery-service/internal/limiter"
 	"github.com/siderolabs/discovery-service/internal/state"
 	storageinternal "github.com/siderolabs/discovery-service/internal/state/storage"
+	"github.com/siderolabs/discovery-service/internal/stats"
 	"github.com/siderolabs/discovery-service/pkg/limits"
 	"github.com/siderolabs/discovery-service/pkg/server"
 	"github.com/siderolabs/discovery-service/pkg/storage"
@@ -150,7 +151,9 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
 
-	landingHandler := landing.Handler(state, logger)
+	siteMux := http.NewServeMux()
+	siteMux.Handle("/stats", stats.Handler(state, logger))
+	siteMux.Handle("/", landing.Handler(state, logger))
 
 	eg, ctx := errgroup.WithContext(ctx)
 
@@ -158,7 +161,7 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
 			s.ServeHTTP(w, r)
 		} else {
-			landingHandler.ServeHTTP(w, r)
+			siteMux.ServeHTTP(w, r)
 		}
 	})
 
@@ -232,7 +235,7 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 		}
 
 		landingServer := http.Server{
-			Handler: landingHandler,
+			Handler: siteMux,
 		}
 
 		eg.Go(func() error {

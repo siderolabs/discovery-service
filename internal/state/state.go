@@ -135,6 +135,18 @@ func (state *State) RunGC(ctx context.Context, logger *zap.Logger, interval time
 	}
 }
 
+// Stats is a snapshot of the current state counters.
+type Stats struct {
+	Affiliates int `json:"affiliates"`
+}
+
+// Stats returns a snapshot of the current state counters.
+func (state *State) Stats() Stats {
+	_, a, _, _ := state.stats() //nolint:dogsled // We only need affiliates count for now.
+
+	return Stats{Affiliates: a}
+}
+
 func (state *State) stats() (clusters, affiliates, endpoints, subscriptions int) {
 	for _, cluster := range state.clusters.All() {
 		clusters++
