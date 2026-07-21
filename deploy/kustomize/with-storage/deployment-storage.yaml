@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discovery
+spec:
+  template:
+    spec:
+      containers:
+        - name: discovery
+          args:
+            - --snapshots-enabled=true
+            - --snapshot-path=/var/discovery-service/state.binpb
+            - --snapshot-interval=10m
+          volumeMounts:
+            - mountPath: /var/discovery-service
+              name: storage
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: discovery
