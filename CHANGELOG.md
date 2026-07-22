@@ -1,3 +1,53 @@
+## [discovery-service 1.0.18](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.18) (2026-07-22)
+
+Welcome to the v1.0.18 release of discovery-service!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/discovery-service/issues.
+
+### Contributors
+
+* Maja Bojarska
+* Mateusz Urbanek
+* Andrey Smirnov
+* Tim Jones
+
+### Changes
+<details><summary>12 commits</summary>
+<p>
+
+* [`373430a`](https://github.com/siderolabs/discovery-service/commit/373430a21b29038695c91c6374b1cf7fe7f48245) feat(stats): add cached /stats endpoint
+* [`0dc4741`](https://github.com/siderolabs/discovery-service/commit/0dc474195214a81be1beabfc67a5c8da78ffd60c) chore: bump prometheus, grpc, and otel deps
+* [`1479df2`](https://github.com/siderolabs/discovery-service/commit/1479df28e8f5f4020097ecbd2a5618888a2f5e80) chore: bump net to v0.57.0
+* [`709d4b9`](https://github.com/siderolabs/discovery-service/commit/709d4b94d32d51488943f4d731795072f39596e5) chore: bump net pkg to v0.55.0 (security)
+* [`0ce4779`](https://github.com/siderolabs/discovery-service/commit/0ce47790d2bae247510a603bc22bb01fb3351bcd) chore: bump sync pkg to v0.22.0
+* [`9628da0`](https://github.com/siderolabs/discovery-service/commit/9628da0f6e4e94d2eb885ebd1143c0d923e85fc9) chore: update go.mod deps
+* [`99b6268`](https://github.com/siderolabs/discovery-service/commit/99b6268c643ae65697ab154d78eeb71e9d19ee43) chore: rekres
+* [`48cf9df`](https://github.com/siderolabs/discovery-service/commit/48cf9dfad9424ad0394738e6dd0c364170f16905) chore: bump go to latest 1.26
+* [`d315a3f`](https://github.com/siderolabs/discovery-service/commit/d315a3fe24f5dd0a0343c9f58149ef1c322e8b65) chore: fmt
+* [`f905881`](https://github.com/siderolabs/discovery-service/commit/f905881e2024941860e6ec12ac251fd6fe81c50d) chore: rekres
+* [`73b90df`](https://github.com/siderolabs/discovery-service/commit/73b90dff888917e238a9ad4e980551e67cf4c5a8) feat: add support for x-forwaded-for header
+* [`35804da`](https://github.com/siderolabs/discovery-service/commit/35804da9b903f66913a0137f4cdaab65cf0abfc3) chore: bump dependencies
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/planetscale/vtprotobuf**    ba97887b0a25 -> 8ae5a48058df
+* **github.com/prometheus/client_golang**  v1.23.2 -> v1.24.0
+* **github.com/siderolabs/crypto**         v0.6.4 -> v0.6.5
+* **github.com/siderolabs/gen**            v0.8.6 -> v0.8.7
+* **github.com/siderolabs/proto-codec**    v0.1.3 -> v0.1.4
+* **go.uber.org/zap**                      v1.27.1 -> v1.28.0
+* **golang.org/x/net**                     v0.51.0 -> v0.57.0
+* **golang.org/x/sync**                    v0.19.0 -> v0.22.0
+* **golang.org/x/time**                    v0.14.0 -> v0.15.0
+* **google.golang.org/grpc**               v1.79.1 -> v1.82.1
+
+Previous release can be found at [v1.0.17](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.17)
+
 ## [discovery-service 1.0.17](https://github.com/siderolabs/discovery-service/releases/tag/v1.0.17) (2026-03-27)
 
 Welcome to the v1.0.17 release of discovery-service!
