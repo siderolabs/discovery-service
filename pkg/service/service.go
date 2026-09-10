@@ -25,7 +25,6 @@ import (
 	"github.com/siderolabs/discovery-api/api/v1alpha1/server/pb"
 	"github.com/siderolabs/go-debug"
 	"go.uber.org/zap"
-	"golang.org/x/net/http2"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -196,10 +195,6 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 		var protocols http.Protocols
 		protocols.SetUnencryptedHTTP2(true)
 		mainServer.Protocols = &protocols
-	}
-
-	if err = http2.ConfigureServer(mainServer, nil); err != nil {
-		return fmt.Errorf("failed to configure server: %w", err)
 	}
 
 	if stateStorage != nil {

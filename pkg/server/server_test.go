@@ -24,7 +24,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
-	"golang.org/x/net/http2"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -147,8 +146,6 @@ func setupServerWithOptions(t testing.TB, opts serverOptions) *testServer {
 		TLSConfig: GetServerTLSConfig(t),
 	}
 
-	require.NoError(t, http2.ConfigureServer(testServer.httpServer, nil))
-
 	go func() {
 		if stopErr := testServer.httpServer.ServeTLS(testServer.lis, "", ""); stopErr != nil && !errors.Is(stopErr, http.ErrServerClosed) {
 			assert.NoError(t, stopErr)
@@ -186,8 +183,6 @@ func (testServer *testServer) restartWithRedirect(t *testing.T, redirectEndpoint
 		Handler:   testServer.s,
 		TLSConfig: GetServerTLSConfig(t),
 	}
-
-	require.NoError(t, http2.ConfigureServer(testServer.httpServer, nil))
 
 	go func() {
 		if stopErr := testServer.httpServer.ServeTLS(testServer.lis, "", ""); stopErr != nil && !errors.Is(stopErr, http.ErrServerClosed) {
