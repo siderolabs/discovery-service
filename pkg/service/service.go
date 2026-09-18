@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
@@ -33,6 +32,7 @@ import (
 
 	"github.com/siderolabs/discovery-service/internal/landing"
 	"github.com/siderolabs/discovery-service/internal/limiter"
+	"github.com/siderolabs/discovery-service/internal/protomux"
 	"github.com/siderolabs/discovery-service/internal/state"
 	storageinternal "github.com/siderolabs/discovery-service/internal/state/storage"
 	"github.com/siderolabs/discovery-service/internal/stats"
@@ -43,7 +43,19 @@ import (
 
 // Options are the configuration options for the service.
 type Options struct {
+	// MetricsRegisterer is where the service collectors are registered.
+	//
+	// When unset, the collectors are not registered anywhere.
 	MetricsRegisterer prom.Registerer
+
+	// MetricsGatherer is what the metrics server serves.
+	//
+	// Defaults to MetricsRegisterer when it is a registry (which can both register and gather),
+	// so a custom registry only exposes what was registered with it (the Go runtime and process
+	// collectors come with prom.DefaultRegisterer). It must be set explicitly when
+	// MetricsRegisterer can't gather (e.g. prom.WrapRegistererWith), and it defaults to
+	// prom.DefaultGatherer when MetricsRegisterer is unset.
+	MetricsGatherer prom.Gatherer
 
 	ListenAddr   string
 	LandingAddr  string
@@ -73,7 +85,12 @@ type Options struct {
 	DisableClientIPReporting bool
 }
 
-func newGRPCServer(ctx context.Context, state *state.State, options Options, logger *zap.Logger) (*grpc.Server, *server.ClusterServer, *limiter.IPRateLimiter, *grpc_prometheus.ServerMetrics) {
+func newGRPCServer(
+	ctx context.Context,
+	state *state.State,
+	options Options,
+	logger *zap.Logger,
+) (*grpc.Server, *server.ClusterServer, *limiter.IPRateLimiter, *grpc_prometheus.ServerMetrics) {
 	recoveryOpt := grpc_recovery.WithRecoveryHandler(recoveryHandler(logger))
 
 	limiter := limiter.NewIPRateLimiter(limits.IPRateRequestsPerSecondMax, limits.IPRateBurstSizeMax)
@@ -99,7 +116,12 @@ func newGRPCServer(ctx context.Context, state *state.State, options Options, log
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
 			MinTime: 10 * time.Second,
 		}),
-		grpc.ReadBufferSize(16 * 1024),
+		// The service holds a very large number of mostly idle streams, so per-connection
+		// buffers dominate the heap. The write buffer is pooled by gRPC and released on
+		// every flush, while the read buffer is not (it is only pooled for raw TCP
+		// connections, and TLS is terminated here), so reading straight from the
+		// connection is cheaper: crypto/tls does its own record buffering anyway.
+		grpc.ReadBufferSize(0),
 		grpc.WriteBufferSize(16 * 1024),
 	}
 
@@ -130,18 +152,35 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 
 	var stateStorage *storageinternal.Storage
 
+	var err error
+
 	if options.SnapshotsEnabled {
 		if options.SnapshotStore == nil {
 			options.SnapshotStore = &storageinternal.FileStore{Path: options.SnapshotPath}
 		}
 
 		stateStorage = storageinternal.New(options.SnapshotStore, state, logger)
-		if err := stateStorage.Load(ctx); err != nil {
+		if err = stateStorage.Load(ctx); err != nil {
 			logger.Warn("failed to load state from storage", zap.Error(err))
 		}
 	} else {
 		logger.Info("snapshots are disabled")
 	}
+
+	var metricsGatherer prom.Gatherer
+
+	if options.MetricsServerEnabled {
+		metricsGatherer, err = resolveGatherer(options)
+		if err != nil {
+			return err
+		}
+	}
+
+	// the gRPC handlers are unblocked by this context on shutdown, so it has to be the errgroup
+	// one: a failure of any errgroup member should still allow a graceful stop to complete
+	eg, ctx := errgroup.WithContext(ctx)
+
+	connMetrics := protomux.NewMetrics()
 
 	s, srv, limiter, metrics := newGRPCServer(ctx, state, options, logger)
 
@@ -153,16 +192,6 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 	siteMux := http.NewServeMux()
 	siteMux.Handle("/stats", stats.Handler(state, logger))
 	siteMux.Handle("/", landing.Handler(state, logger))
-
-	eg, ctx := errgroup.WithContext(ctx)
-
-	var rootHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
-			s.ServeHTTP(w, r)
-		} else {
-			siteMux.ServeHTTP(w, r)
-		}
-	})
 
 	insecure := options.CertificatePath == "" && options.KeyPath == ""
 
@@ -184,17 +213,22 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 		}
 	}
 
+	// gRPC and the static assets share the listener, but they are served by two different
+	// servers: gRPC clients speak HTTP/2 and are handed to the native gRPC server, everything
+	// else is served over HTTP/1.1.
+	mux := protomux.New(lis, tlsConfig, connMetrics, logger)
+
+	// only HTTP/1.1 connections reach this server, so HTTP/2 support is not needed
+	var protocols http.Protocols
+
+	protocols.SetHTTP1(true)
+
 	mainServer := &http.Server{
 		ReadHeaderTimeout: 10 * time.Second,
-		Handler:           rootHandler,
-		TLSConfig:         tlsConfig,
+		Handler:           siteMux,
+		Protocols:         &protocols,
+		ConnState:         protomux.HTTPConnState(connMetrics),
 		ErrorLog:          zap.NewStdLog(logger.With(zap.String("server", "http"))),
-	}
-
-	if insecure {
-		var protocols http.Protocols
-		protocols.SetUnencryptedHTTP2(true)
-		mainServer.Protocols = &protocols
 	}
 
 	if stateStorage != nil {
@@ -206,15 +240,20 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 	eg.Go(func() error {
 		logger.Info("API server starting", zap.Stringer("address", lis.Addr()))
 
-		var serveErr error
+		return mux.Run(ctx)
+	})
 
-		if insecure {
-			serveErr = mainServer.Serve(lis)
-		} else {
-			serveErr = mainServer.ServeTLS(lis, "", "")
+	// on shutdown the mux closes both listeners, which surfaces as net.ErrClosed in the servers
+	eg.Go(func() error {
+		if serveErr := s.Serve(mux.H2Listener()); serveErr != nil && !errors.Is(serveErr, grpc.ErrServerStopped) && !errors.Is(serveErr, net.ErrClosed) {
+			return fmt.Errorf("failed to serve gRPC: %w", serveErr)
 		}
 
-		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+		return nil
+	})
+
+	eg.Go(func() error {
+		if serveErr := mainServer.Serve(mux.HTTPListener()); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) && !errors.Is(serveErr, net.ErrClosed) {
 			return fmt.Errorf("failed to serve: %w", serveErr)
 		}
 
@@ -256,7 +295,7 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 	if options.MetricsServerEnabled {
 		var metricsMux http.ServeMux
 
-		metricsMux.Handle("/metrics", promhttp.Handler())
+		metricsMux.Handle("/metrics", promhttp.HandlerFor(metricsGatherer, promhttp.HandlerOpts{}))
 
 		metricsServer := http.Server{
 			Addr:    options.MetricsAddr,
@@ -286,6 +325,22 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 	eg.Go(func() error {
 		<-ctx.Done()
 
+		// the Watch handlers are unblocked by the same (errgroup) context, so a graceful
+		// stop completes quickly; Stop is a safety net for a stuck connection
+		stopped := make(chan struct{})
+
+		go func() {
+			defer close(stopped)
+
+			s.GracefulStop()
+		}()
+
+		select {
+		case <-stopped:
+		case <-time.After(5 * time.Second):
+			s.Stop()
+		}
+
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer shutdownCancel()
 
@@ -311,7 +366,7 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 	}
 
 	if options.MetricsRegisterer != nil {
-		collectors := []prom.Collector{state, srv, metrics}
+		collectors := []prom.Collector{state, srv, metrics, connMetrics}
 
 		if stateStorage != nil {
 			collectors = append(collectors, stateStorage)
@@ -325,6 +380,26 @@ func Run(ctx context.Context, options Options, logger *zap.Logger) error {
 	}
 
 	return eg.Wait()
+}
+
+// resolveGatherer picks the gatherer for the metrics server, see Options.MetricsGatherer.
+func resolveGatherer(options Options) (prom.Gatherer, error) {
+	if options.MetricsGatherer != nil {
+		return options.MetricsGatherer, nil
+	}
+
+	if options.MetricsRegisterer == nil {
+		return prom.DefaultGatherer, nil
+	}
+
+	// registries implement both interfaces, so this is the very registry the collectors are
+	// registered with
+	if gatherer, ok := options.MetricsRegisterer.(prom.Gatherer); ok {
+		return gatherer, nil
+	}
+
+	// silently serving another registry would leave the service metrics out of /metrics
+	return nil, errors.New("MetricsRegisterer can't gather metrics, MetricsGatherer must be set")
 }
 
 func recoveryHandler(logger *zap.Logger) grpc_recovery.RecoveryHandlerFunc {

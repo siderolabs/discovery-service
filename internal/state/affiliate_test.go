@@ -115,3 +115,29 @@ func TestAffiliateTooManyEndpoints(t *testing.T) {
 
 	assert.ErrorIs(t, err, state.ErrTooManyEndpoints)
 }
+
+func TestAffiliateUpdateUnchanged(t *testing.T) {
+	t.Parallel()
+
+	affiliate := state.NewAffiliate("af1")
+
+	expiration := time.Now().Add(time.Minute)
+
+	affiliate.Update([]byte("data"), expiration)
+	assert.True(t, affiliate.IsChanged())
+
+	// a TTL refresh re-sends the identical blob: the expiration moves, but subscribers should
+	// not be notified about data they already have
+	affiliate.ClearChanged()
+	affiliate.Update([]byte("data"), expiration.Add(time.Minute))
+	assert.False(t, affiliate.IsChanged())
+
+	// a real change is still propagated
+	affiliate.ClearChanged()
+	affiliate.Update([]byte("other data"), expiration.Add(time.Minute))
+	assert.True(t, affiliate.IsChanged())
+
+	// the refreshed expiration took effect: the affiliate outlives the original expiration
+	remove, _ := affiliate.GarbageCollect(expiration.Add(30 * time.Second))
+	assert.False(t, remove)
+}

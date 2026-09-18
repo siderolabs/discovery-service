@@ -48,9 +48,16 @@ func (affiliate *Affiliate) IsChanged() bool {
 
 // Update affiliate data and expiration.
 func (affiliate *Affiliate) Update(data []byte, expiration time.Time) {
-	affiliate.data = data
+	// Clients re-send the very same (already encrypted) blob every TTL/2 just to refresh the
+	// expiration: the ciphertext is built once, when the data actually changes, and cached by
+	// the client. Marking those refreshes as changed would fan a notification out to every
+	// subscriber of the cluster for data they already have.
+	if !bytes.Equal(affiliate.data, data) {
+		affiliate.data = data
+		affiliate.changed = true
+	}
+
 	affiliate.expiration = expiration
-	affiliate.changed = true
 }
 
 // MergeEndpoints and potentially update expiration for endpoints.

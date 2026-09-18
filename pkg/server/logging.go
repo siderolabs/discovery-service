@@ -46,27 +46,27 @@ func UnaryRequestLogger(logger *zap.Logger) grpc.UnaryServerInterceptor {
 
 		resp, err := handler(ctx, req)
 
-		duration := time.Since(startTime)
-		code := status.Code(err)
-
 		level := zapcore.InfoLevel
 
 		if err != nil {
 			level = zapcore.ErrorLevel
 		}
 
-		logger.Log(
-			level, info.FullMethod,
-			append(
-				[]zapcore.Field{
-					zap.Duration("duration", duration),
-					zap.Stringer("code", code),
-					zap.Error(err),
-					zap.Stringer("peer.address", PeerAddress(ctx)),
-				},
-				extractFields(req)...,
-			)...,
-		)
+		// building the fields is not free (peer address extraction, allocations), so skip it
+		// entirely when the entry is not going to be written
+		if entry := logger.Check(level, info.FullMethod); entry != nil {
+			entry.Write(
+				append(
+					[]zapcore.Field{
+						zap.Duration("duration", time.Since(startTime)),
+						zap.Stringer("code", status.Code(err)),
+						zap.Error(err),
+						zap.Stringer("peer.address", PeerAddress(ctx)),
+					},
+					extractFields(req)...,
+				)...,
+			)
+		}
 
 		return resp, err
 	}
@@ -81,22 +81,20 @@ func StreamRequestLogger(logger *zap.Logger) grpc.StreamServerInterceptor {
 
 		err := handler(srv, ss)
 
-		duration := time.Since(startTime)
-		code := status.Code(err)
-
 		level := zapcore.InfoLevel
 
 		if err != nil {
 			level = zapcore.ErrorLevel
 		}
 
-		logger.Log(
-			level, info.FullMethod,
-			zap.Duration("duration", duration),
-			zap.Stringer("code", code),
-			zap.Error(err),
-			zap.Stringer("peer.address", PeerAddress(ctx)),
-		)
+		if entry := logger.Check(level, info.FullMethod); entry != nil {
+			entry.Write(
+				zap.Duration("duration", time.Since(startTime)),
+				zap.Stringer("code", status.Code(err)),
+				zap.Error(err),
+				zap.Stringer("peer.address", PeerAddress(ctx)),
+			)
+		}
 
 		return err
 	}
