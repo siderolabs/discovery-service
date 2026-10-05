@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discovery
+  labels:
+    app: discovery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: discovery
+      app.kubernetes.io/name: discovery
+  template:
+    metadata:
+      labels:
+        app: discovery
+        app.kubernetes.io/name: discovery
+    spec:
+      containers:
+        - name: discovery
+          image: ghcr.io/siderolabs/discovery-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 3000
+            - name: http
+              containerPort: 3001
+            - name: metrics
+              containerPort: 2122
+          livenessProbe:
+            tcpSocket:
+              port: 2122
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: 2122
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
