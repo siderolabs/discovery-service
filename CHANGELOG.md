@@ -1,3 +1,30 @@
+## [discovery-service 1.1.3](https://github.com/siderolabs/discovery-service/releases/tag/v1.1.3) (2026-10-05)
+
+Welcome to the v1.1.3 release of discovery-service!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/discovery-service/issues.
+
+### Contributors
+
+* Utku Ozdemir
+
+### Changes
+<details><summary>1 commit</summary>
+<p>
+
+* [`828e951`](https://github.com/siderolabs/discovery-service/commit/828e9519f992697b7ec82f0555ea5bf60071d0af) fix: do not report live affiliates as deleted on endpoint expiry
+</p>
+</details>
+
+### Dependency Changes
+
+This release has no dependency changes
+
+Previous release can be found at [v1.1.2](https://github.com/siderolabs/discovery-service/releases/tag/v1.1.2)
+
 ## [discovery-service 1.1.2](https://github.com/siderolabs/discovery-service/releases/tag/v1.1.2) (2026-09-21)
 
 Welcome to the v1.1.2 release of discovery-service!
