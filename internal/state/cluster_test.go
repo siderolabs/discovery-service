@@ -154,6 +154,46 @@ func TestClusterMutations(t *testing.T) {
 	assert.True(t, empty)
 }
 
+func TestClusterEndpointExpiry(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+
+	cluster := state.NewCluster("cluster1")
+
+	assert.NoError(t, cluster.WithAffiliate("af1", func(affiliate *state.Affiliate) error {
+		affiliate.Update([]byte("data"), now.Add(10*time.Minute))
+
+		return affiliate.MergeEndpoints([][]byte{[]byte("e1"), []byte("e2")}, now.Add(time.Minute))
+	}))
+
+	updates := make(chan *state.Notification, 1)
+
+	_, subscription := cluster.Subscribe(updates)
+	defer subscription.Close()
+
+	// refresh e2 only, e1 is left to expire
+	assert.NoError(t, cluster.WithAffiliate("af1", func(affiliate *state.Affiliate) error {
+		return affiliate.MergeEndpoints([][]byte{[]byte("e2")}, now.Add(10*time.Minute))
+	}))
+
+	removedAffiliates, empty := cluster.GarbageCollect(now.Add(2 * time.Minute))
+	assert.Zero(t, removedAffiliates)
+	assert.False(t, empty)
+
+	select {
+	case notification := <-updates:
+		assert.Equal(t, "af1", notification.AffiliateID)
+		assert.Equal(t, &state.AffiliateExport{
+			ID:        "af1",
+			Data:      []byte("data"),
+			Endpoints: [][]byte{[]byte("e2")},
+		}, notification.Affiliate)
+	case <-time.After(time.Second):
+		assert.Fail(t, "no notification")
+	}
+}
+
 func TestClusterSubscriptions(t *testing.T) {
 	t.Parallel()
 

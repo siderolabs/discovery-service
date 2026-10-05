@@ -141,15 +141,20 @@ func (cluster *Cluster) GarbageCollect(now time.Time) (removedAffiliates int, em
 	for id, affiliate := range cluster.affiliates {
 		remove, changed := affiliate.GarbageCollect(now)
 
-		if remove {
+		switch {
+		case remove:
 			delete(cluster.affiliates, id)
 
 			removedAffiliates++
-		}
 
-		if changed {
 			cluster.notify(&Notification{
 				AffiliateID: id,
+			})
+		case changed:
+			// only some endpoints expired, the affiliate itself is still alive
+			cluster.notify(&Notification{
+				AffiliateID: id,
+				Affiliate:   affiliate.Export(),
 			})
 		}
 	}
